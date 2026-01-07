@@ -1,34 +1,32 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { FootballMatch, Confidence, BetType, Prediction, VipInsight } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export async function generatePredictionsAndAnalysis(match: Partial<FootballMatch>, language: string): Promise<{ predictions: Prediction[], analysis: string, vipInsight: VipInsight }> {
+  // Graine déterministe basée sur l'ID du match pour avoir toujours le même résultat
+  const seed = parseInt(match.id?.toString().replace(/\D/g, '').slice(-8) || '0', 10);
+
   const prompt = `
-    Analyze this football match for professional betting.
-    Match: ${match.homeTeam} vs ${match.awayTeam} (${match.league})
+    Analyse footballistique experte pour le match : ${match.homeTeam} vs ${match.awayTeam} (${match.league}).
     
-    1. Generate 2-3 standard predictions (1X2, O/U 2.5, BTTS).
-    2. VIP Features:
-       - 2 most likely "Exact Scores" (e.g. "2-1", "1-0").
-       - Strategy: "Safe" (low risk), "Value" (best odds/prob ratio), "Aggressive" (high risk).
-       - One key tactical fact.
-    
-    Return the result in JSON format with the following structure:
+    INSTRUCTIONS :
+    - Prédictions : 1X2, Over/Under 2.5, BTTS.
+    - VIP DATA : 2 scores exacts les plus probables.
+    - Analyse : Un paragraphe expert expliquant la dynamique du match en ${language === 'FR' ? 'Français' : 'Anglais'}.
+
+    IMPORTANT : Tes résultats doivent être stables et cohérents avec les forces en présence.
+    FORMAT : JSON uniquement.
+    Structure :
     {
       "predictions": [
-        { "type": "1X2", "recommendation": "1", "probability": 75, "confidence": "HIGH", "odds": 1.50 }
+        { "type": "1X2", "recommendation": "1", "probability": 72, "confidence": "HIGH", "odds": 1.65 }
       ],
-      "analysis": "2-sentence data reasoning in ${language === 'FR' ? 'French' : 'English'}.",
+      "analysis": "...",
       "vipInsight": {
-        "exactScores": ["2-1", "1-0"],
-        "strategy": {
-          "safe": "Prediction string in ${language === 'FR' ? 'French' : 'English'}",
-          "value": "Prediction string in ${language === 'FR' ? 'French' : 'English'}",
-          "aggressive": "Prediction string in ${language === 'FR' ? 'French' : 'English'}"
-        },
-        "keyFact": "Tactical fact in ${language === 'FR' ? 'French' : 'English'}"
+        "exactScores": ["2-1", "2-0"],
+        "strategy": { "safe": "...", "value": "...", "aggressive": "..." },
+        "keyFact": "..."
       }
     }
   `;
@@ -39,42 +37,7 @@ export async function generatePredictionsAndAnalysis(match: Partial<FootballMatc
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            predictions: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  type: { type: Type.STRING },
-                  recommendation: { type: Type.STRING },
-                  probability: { type: Type.NUMBER },
-                  confidence: { type: Type.STRING },
-                  odds: { type: Type.NUMBER }
-                },
-                required: ["type", "recommendation", "probability", "confidence", "odds"]
-              }
-            },
-            analysis: { type: Type.STRING },
-            vipInsight: {
-              type: Type.OBJECT,
-              properties: {
-                exactScores: { type: Type.ARRAY, items: { type: Type.STRING } },
-                strategy: {
-                  type: Type.OBJECT,
-                  properties: {
-                    safe: { type: Type.STRING },
-                    value: { type: Type.STRING },
-                    aggressive: { type: Type.STRING }
-                  }
-                },
-                keyFact: { type: Type.STRING }
-              }
-            }
-          },
-          required: ["predictions", "analysis", "vipInsight"]
-        }
+        seed: seed // Utilisation de la graine pour la cohérence
       }
     });
 
@@ -91,12 +54,12 @@ export async function generatePredictionsAndAnalysis(match: Partial<FootballMatc
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
     return {
-      predictions: [{ type: BetType.W1X2, recommendation: "TBD", probability: 50, confidence: Confidence.MEDIUM, odds: 2.0 }],
-      analysis: language === 'FR' ? "Erreur d'analyse." : "Analysis error.",
+      predictions: [{ type: BetType.W1X2, recommendation: "N/A", probability: 50, confidence: Confidence.MEDIUM, odds: 0 }],
+      analysis: "L'analyse IA est temporairement indisponible.",
       vipInsight: {
-        exactScores: ["1-1", "0-0"],
+        exactScores: ["1-1", "2-1"],
         strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" },
-        keyFact: "N/A"
+        keyFact: "Données indisponibles"
       }
     };
   }
