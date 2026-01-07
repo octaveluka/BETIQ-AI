@@ -1,5 +1,4 @@
-
-const API_KEY = '86e7c11ea30b6bb9677a52455d9b63f48ae438b8b043f09858262fb8c9a3eae6';
+const API_KEY = '8fc116983517a0adaa7e23c8c688e56e3bce4429d6d87511d759b9ebfd53f564';
 const BASE_URL = 'https://apiv3.apifootball.com/';
 
 export interface ApiMatch {
