@@ -1,266 +1,133 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { HashRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { 
   Crown, Lock, LayoutGrid, Settings, ChevronLeft, Share2, TrendingUp, ShieldCheck,
-  Loader2, RefreshCw, ChevronRight, Target, Zap, MessageCircle, 
-  Search, ArrowRight, BrainCircuit, Sparkles, Key, CheckCircle2,
-  Activity, Clock, AlertTriangle, ExternalLink, TrendingUp as ChartUp,
-  Shield
+  Loader2, RefreshCw, ChevronRight, Zap, Search, ArrowRight, BrainCircuit, Activity, 
+  AlertTriangle, Star, LogOut, Mail, UserCircle, Key, CheckCircle2
 } from 'lucide-react';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  onAuthStateChanged, 
+  signOut,
+  signInWithPopup,
+  User as FirebaseUser 
+} from "firebase/auth";
+import { auth, googleProvider } from './services/firebase';
 
-import { FootballMatch, Confidence, Prediction, VipInsight, Language } from './types';
+import { FootballMatch, Confidence, Prediction, VipInsight, Language, BetType } from './types';
 import { MatchCard } from './components/MatchCard';
 import { ConfidenceIndicator } from './components/ConfidenceIndicator';
 import { generatePredictionsAndAnalysis } from './services/geminiService';
 import { fetchMatchesByDate } from './services/footballApiService';
 
+const { HashRouter, Routes, Route, Link, useLocation, useNavigate } = ReactRouterDOM;
+
 const ADMIN_CODE = "20202020";
 const PAYMENT_LINK = "https://bsbxsvng.mychariow.shop/prd_g3zdgh/checkout";
-const WHATSAPP_NUMBER = "+2250778839196";
 
-const VALID_CODES_ARRAY = [
-  "BETIQ-5", "BETIQ-24", "BETIQ-55", "BETIQ-98", "BETIQ-153", "BETIQ-220", "BETIQ-299", "BETIQ-390", "BETIQ-493", "BETIQ-608", "BETIQ-735", "BETIQ-874", "BETIQ-1025", "BETIQ-1188", "BETIQ-1363", "BETIQ-1550", "BETIQ-1749", "BETIQ-1960", "BETIQ-2183", "BETIQ-2418", "BETIQ-2665", "BETIQ-2924", "BETIQ-3195", "BETIQ-3478", "BETIQ-3773", "BETIQ-4080", "BETIQ-4399", "BETIQ-4730", "BETIQ-5073", "BETIQ-5428", "BETIQ-5795", "BETIQ-6174", "BETIQ-6565", "BETIQ-6968", "BETIQ-7383", "BETIQ-7810", "BETIQ-8249", "BETIQ-8700", "BETIQ-9163", "BETIQ-9638", "BETIQ-10125", "BETIQ-10624", "BETIQ-11135", "BETIQ-11658", "BETIQ-12193", "BETIQ-12740", "BETIQ-13299", "BETIQ-13870", "BETIQ-14453", "BETIQ-15048", "BETIQ-15655", "BETIQ-16274", "BETIQ-16905", "BETIQ-17548", "BETIQ-18203", "BETIQ-18870", "BETIQ-19549", "BETIQ-20240", "BETIQ-20943", "BETIQ-21658", "BETIQ-22385", "BETIQ-23124", "BETIQ-23875", "BETIQ-24638", "BETIQ-25413", "BETIQ-26200", "BETIQ-26999", "BETIQ-27810", "BETIQ-28633", "BETIQ-29468", "BETIQ-30315", "BETIQ-31174", "BETIQ-32045", "BETIQ-32928", "BETIQ-33823", "BETIQ-34730", "BETIQ-35649", "BETIQ-36580", "BETIQ-37523", "BETIQ-38478", "BETIQ-39445", "BETIQ-40424", "BETIQ-41415", "BETIQ-42418", "BETIQ-43433", "BETIQ-44460", "BETIQ-45499", "BETIQ-46550", "BETIQ-47613", "BETIQ-48688", "BETIQ-49775", "BETIQ-50874", "BETIQ-51985", "BETIQ-53108", "BETIQ-54243", "BETIQ-55390", "BETIQ-56549", "BETIQ-57720", "BETIQ-58903", "BETIQ-60098", "BETIQ-61305", "BETIQ-62524", "BETIQ-63755", "BETIQ-64998", "BETIQ-66253", "BETIQ-67520", "BETIQ-68799", "BETIQ-70090", "BETIQ-71393", "BETIQ-72708", "BETIQ-74035", "BETIQ-75374", "BETIQ-76725", "BETIQ-78088", "BETIQ-79463", "BETIQ-80850", "BETIQ-82249", "BETIQ-83660", "BETIQ-85083", "BETIQ-86518", "BETIQ-87965", "BETIQ-89424", "BETIQ-90895", "BETIQ-92378", "BETIQ-93873", "BETIQ-95380", "BETIQ-96899", "BETIQ-98430", "BETIQ-99973", "BETIQ-101528", "BETIQ-103095", "BETIQ-104674", "BETIQ-106265", "BETIQ-107868", "BETIQ-109483", "BETIQ-111110", "BETIQ-112749", "BETIQ-114400", "BETIQ-116063", "BETIQ-117738", "BETIQ-119425", "BETIQ-121124", "BETIQ-122835", "BETIQ-124558", "BETIQ-126293", "BETIQ-128040", "BETIQ-129799", "BETIQ-131570", "BETIQ-133353", "BETIQ-135148", "BETIQ-136955", "BETIQ-138774", "BETIQ-140605", "BETIQ-142448", "BETIQ-144303", "BETIQ-146170", "BETIQ-148049", "BETIQ-149940", "BETIQ-151843", "BETIQ-153758", "BETIQ-155685", "BETIQ-157624", "BETIQ-159575", "BETIQ-161538", "BETIQ-163513", "BETIQ-165500", "BETIQ-167499", "BETIQ-169510", "BETIQ-171533", "BETIQ-173568", "BETIQ-175615", "BETIQ-177674", "BETIQ-179745", "BETIQ-181828", "BETIQ-183923", "BETIQ-186030", "BETIQ-188149", "BETIQ-190280", "BETIQ-192423", "BETIQ-194578", "BETIQ-196745", "BETIQ-198924", "BETIQ-201115", "BETIQ-203318", "BETIQ-205533", "BETIQ-207760", "BETIQ-209999", "BETIQ-212250", "BETIQ-214513", "BETIQ-216788", "BETIQ-219075", "BETIQ-221374", "BETIQ-223685", "BETIQ-226008", "BETIQ-228343", "BETIQ-230690", "BETIQ-233049", "BETIQ-235420", "BETIQ-237803", "BETIQ-240198", "BETIQ-242605", "BETIQ-245024", "BETIQ-247455", "BETIQ-249898", "BETIQ-252353", "BETIQ-254820", "BETIQ-257299", "BETIQ-259790", "BETIQ-262293", "BETIQ-264808", "BETIQ-267335", "BETIQ-269874", "BETIQ-272425", "BETIQ-274988", "BETIQ-277563", "BETIQ-280150", "BETIQ-282749", "BETIQ-285360", "BETIQ-287983", "BETIQ-290618", "BETIQ-293265", "BETIQ-295924", "BETIQ-298595", "BETIQ-301278", "BETIQ-303973", "BETIQ-306680", "BETIQ-309399", "BETIQ-312130", "BETIQ-314873", "BETIQ-317628", "BETIQ-320395", "BETIQ-323174", "BETIQ-325965", "BETIQ-328768", "BETIQ-331583", "BETIQ-334410", "BETIQ-337249", "BETIQ-340100", "BETIQ-342963", "BETIQ-345838", "BETIQ-348725", "BETIQ-351624", "BETIQ-354535", "BETIQ-357458", "BETIQ-360393", "BETIQ-363340", "BETIQ-366299", "BETIQ-369270", "BETIQ-372253", "BETIQ-375248", "BETIQ-378255", "BETIQ-381274", "BETIQ-384305", "BETIQ-387348", "BETIQ-390403", "BETIQ-393470", "BETIQ-396549", "BETIQ-399640", "BETIQ-402743", "BETIQ-405858", "BETIQ-408985", "BETIQ-412124", "BETIQ-415275", "BETIQ-418438", "BETIQ-421613", "BETIQ-424800", "BETIQ-427999", "BETIQ-431210", "BETIQ-434433", "BETIQ-437668", "BETIQ-440915", "BETIQ-444174", "BETIQ-447445", "BETIQ-450728", "BETIQ-454023", "BETIQ-457330", "BETIQ-460649", "BETIQ-463980", "BETIQ-467323", "BETIQ-470678", "BETIQ-474045", "BETIQ-477424", "BETIQ-480815", "BETIQ-484218", "BETIQ-487633", "BETIQ-491060", "BETIQ-494499", "BETIQ-497950", "BETIQ-501413", "BETIQ-504888", "BETIQ-508375", "BETIQ-511874", "BETIQ-515385", "BETIQ-518908", "BETIQ-522443", "BETIQ-525990", "BETIQ-529549", "BETIQ-533120", "BETIQ-536703", "BETIQ-540298", "BETIQ-543905", "BETIQ-547524", "BETIQ-551155", "BETIQ-554798", "BETIQ-558453", "BETIQ-562120", "BETIQ-565799", "BETIQ-569490", "BETIQ-573193", "BETIQ-576908", "BETIQ-580635", "BETIQ-584374", "BETIQ-588125", "BETIQ-591888", "BETIQ-595663", "BETIQ-599450", "BETIQ-603249", "BETIQ-607060", "BETIQ-610883", "BETIQ-614718", "BETIQ-618565", "BETIQ-622424", "BETIQ-626295", "BETIQ-630178", "BETIQ-634073", "BETIQ-637980", "BETIQ-641899", "BETIQ-645830", "BETIQ-649773", "BETIQ-653728", "BETIQ-657695", "BETIQ-661674", "BETIQ-665665", "BETIQ-669668", "BETIQ-673683", "BETIQ-677710", "BETIQ-681749", "BETIQ-685800", "BETIQ-689863", "BETIQ-693938", "BETIQ-698025", "BETIQ-702124", "BETIQ-706235", "BETIQ-710358", "BETIQ-714493", "BETIQ-718640", "BETIQ-722799", "BETIQ-726970", "BETIQ-731153", "BETIQ-735348", "BETIQ-739555", "BETIQ-743774", "BETIQ-748005", "BETIQ-752248", "BETIQ-756503", "BETIQ-760770", "BETIQ-765049", "BETIQ-769340", "BETIQ-777958", "BETIQ-782285", "BETIQ-786624", "BETIQ-790975", "BETIQ-795338", "BETIQ-799713", "BETIQ-804100", "BETIQ-808499", "BETIQ-812910", "BETIQ-817333", "BETIQ-821768", "BETIQ-826215", "BETIQ-830674", "BETIQ-835145", "BETIQ-839628", "BETIQ-844123", "BETIQ-848630", "BETIQ-853149", "BETIQ-857680", "BETIQ-862223", "BETIQ-866778", "BETIQ-871345", "BETIQ-875924", "BETIQ-880515", "BETIQ-885118", "BETIQ-889733", "BETIQ-894360", "BETIQ-898999", "BETIQ-903650", "BETIQ-908313", "BETIQ-912988", "BETIQ-917675", "BETIQ-922374", "BETIQ-927085", "BETIQ-931808", "BETIQ-936543", "BETIQ-941290", "BETIQ-946049", "BETIQ-950820", "BETIQ-955603", "BETIQ-960398", "BETIQ-965205", "BETIQ-970024", "BETIQ-974855", "BETIQ-979698", "BETIQ-984553", "BETIQ-989420", "BETIQ-994299", "BETIQ-999190", "BETIQ-1004093", "BETIQ-1009008", "BETIQ-1013935", "BETIQ-1018874", "BETIQ-1023825", "BETIQ-1028788", "BETIQ-1033763", "BETIQ-1038750", "BETIQ-1043749", "BETIQ-1048760", "BETIQ-1053783", "BETIQ-1058818", "BETIQ-1063865", "BETIQ-1068924", "BETIQ-1073995", "BETIQ-1079078", "BETIQ-1084173", "BETIQ-1089280", "BETIQ-1094399", "BETIQ-1099530", "BETIQ-1104673", "BETIQ-1109828", "BETIQ-1114995", "BETIQ-1120174", "BETIQ-1125365", "BETIQ-1130568", "BETIQ-1135783", "BETIQ-1141010", "BETIQ-1146249", "BETIQ-1151500", "BETIQ-1156763", "BETIQ-1162038", "BETIQ-1167325", "BETIQ-1172624", "BETIQ-1177935", "BETIQ-1183258", "BETIQ-1188593", "BETIQ-1193940", "BETIQ-1199299", "BETIQ-1204670", "BETIQ-1210053", "BETIQ-1215448", "BETIQ-1220855", "BETIQ-1226274", "BETIQ-1231705", "BETIQ-1237148", "BETIQ-1242603", "BETIQ-1248070", "BETIQ-1253549", "BETIQ-1259040", "BETIQ-1264543", "BETIQ-1270058", "BETIQ-1275585", "BETIQ-1281124", "BETIQ-1286675", "BETIQ-1292238", "BETIQ-1297813", "BETIQ-1303400", "BETIQ-1308999", "BETIQ-1314610", "BETIQ-1320233", "BETIQ-1325868", "BETIQ-1331515", "BETIQ-1337174", "BETIQ-1342845", "BETIQ-1348528", "BETIQ-1354223", "BETIQ-1359930", "BETIQ-1365649", "BETIQ-1371380", "BETIQ-1377123", "BETIQ-1382878", "BETIQ-1388645", "BETIQ-1394424", "BETIQ-1400215", "BETIQ-1406018", "BETIQ-1411833", "BETIQ-1417660", "BETIQ-1423499", "BETIQ-1429350", "BETIQ-1435213", "BETIQ-1441088", "BETIQ-1446975", "BETIQ-1452874", "BETIQ-1458785", "BETIQ-1464708", "BETIQ-1470643", "BETIQ-1476590", "BETIQ-1482549", "BETIQ-1488520", "BETIQ-1494503", "BETIQ-1500498", "BETIQ-1506505", "BETIQ-1512524", "BETIQ-1518555", "BETIQ-1524598", "BETIQ-1530653", "BETIQ-1536720", "BETIQ-1542799", "BETIQ-1548890", "BETIQ-1554993", "BETIQ-1561108", "BETIQ-1567235", "BETIQ-1573374", "BETIQ-1579525", "BETIQ-1585688", "BETIQ-1591863", "BETIQ-1598050", "BETIQ-1604249", "BETIQ-1610460", "BETIQ-1616683", "BETIQ-1622918", "BETIQ-1629165", "BETIQ-1635424", "BETIQ-1641695", "BETIQ-1647978", "BETIQ-1654273", "BETIQ-1660580", "BETIQ-1666899", "BETIQ-1673230", "BETIQ-1679573", "BETIQ-1685928", "BETIQ-1692295", "BETIQ-1698674", "BETIQ-1705065", "BETIQ-1711468", "BETIQ-1717883", "BETIQ-1724310", "BETIQ-1730749", "BETIQ-1737200", "BETIQ-1743663", "BETIQ-1750138", "BETIQ-1756625", "BETIQ-1763124", "BETIQ-1769635", "BETIQ-1776158", "BETIQ-1782693", "BETIQ-1789240", "BETIQ-1795799", "BETIQ-1802370", "BETIQ-1808953", "BETIQ-1815548", "BETIQ-1822155", "BETIQ-1828774", "BETIQ-1835405", "BETIQ-1842048", "BETIQ-1848703", "BETIQ-1855370", "BETIQ-1862049", "BETIQ-1868740", "BETIQ-1875443", "BETIQ-1882158", "BETIQ-1888885", "BETIQ-1895624", "BETIQ-1902375", "BETIQ-1909138", "BETIQ-1915913", "BETIQ-1922700", "BETIQ-1929499", "BETIQ-1936310", "BETIQ-1943133", "BETIQ-1949968", "BETIQ-1956815", "BETIQ-1963674", "BETIQ-1970545", "BETIQ-1977428", "BETIQ-1984323", "BETIQ-1991230", "BETIQ-1998149", "BETIQ-2005080", "BETIQ-2012023", "BETIQ-2018978", "BETIQ-2025945", "BETIQ-2032924", "BETIQ-2039915", "BETIQ-2046918", "BETIQ-2053933", "BETIQ-2060960", "BETIQ-2067999", "BETIQ-2075050", "BETIQ-2082113", "BETIQ-2089188", "BETIQ-2096275", "BETIQ-2103374", "BETIQ-2110485", "BETIQ-2117608", "BETIQ-2124743", "BETIQ-2131890", "BETIQ-2139049", "BETIQ-2146220", "BETIQ-2153403", "BETIQ-2160598", "BETIQ-2167805", "BETIQ-2175024", "BETIQ-2182255", "BETIQ-2189498", "BETIQ-2196753", "BETIQ-2204020", "BETIQ-2211299", "BETIQ-2218590", "BETIQ-2225893", "BETIQ-2233208", "BETIQ-2240535", "BETIQ-2247874", "BETIQ-2255225", "BETIQ-2262588", "BETIQ-2269963", "BETIQ-2277350", "BETIQ-2284749", "BETIQ-2292160", "BETIQ-2299583", "BETIQ-2307018", "BETIQ-2314465", "BETIQ-2321924", "BETIQ-2329395", "BETIQ-2336878", "BETIQ-2344373", "BETIQ-2351880", "BETIQ-2359399", "BETIQ-2366930", "BETIQ-2374473", "BETIQ-2382028", "BETIQ-2389595", "BETIQ-2397174", "BETIQ-2404765", "BETIQ-2412368", "BETIQ-2419983", "BETIQ-2427610", "BETIQ-2435249", "BETIQ-2442900", "BETIQ-2450563", "BETIQ-2458238", "BETIQ-2465925", "BETIQ-2473624", "BETIQ-2481335", "BETIQ-2489058", "BETIQ-2496793", "BETIQ-2504540", "BETIQ-2512299", "BETIQ-2520070", "BETIQ-2527853", "BETIQ-2535648", "BETIQ-2543455", "BETIQ-2551274", "BETIQ-2559105", "BETIQ-2566948", "BETIQ-2574803", "BETIQ-2582670", "BETIQ-2590549", "BETIQ-2598440", "BETIQ-2606343", "BETIQ-2614258", "BETIQ-2622185", "BETIQ-2630124", "BETIQ-2638075", "BETIQ-2646038", "BETIQ-2654013", "BETIQ-2662000", "BETIQ-2669999", "BETIQ-2678010", "BETIQ-2686033", "BETIQ-2694068", "BETIQ-2702115", "BETIQ-2710174", "BETIQ-2718245", "BETIQ-2726328", "BETIQ-2734423", "BETIQ-2742530", "BETIQ-2750649", "BETIQ-2758780", "BETIQ-2766923", "BETIQ-2775078", "BETIQ-2783245", "BETIQ-2791424", "BETIQ-2799615", "BETIQ-2807818", "BETIQ-2816033", "BETIQ-2824260", "BETIQ-2832499", "BETIQ-2840750", "BETIQ-2849013", "BETIQ-2857288", "BETIQ-2865575", "BETIQ-2873874", "BETIQ-2882185", "BETIQ-2890508", "BETIQ-2898843", "BETIQ-2907190", "BETIQ-2915549", "BETIQ-2923920", "BETIQ-2932303", "BETIQ-2940698", "BETIQ-2949105", "BETIQ-2957524", "BETIQ-2974398", "BETIQ-2982853", "BETIQ-2991320", "BETIQ-2999799", "BETIQ-3008290", "BETIQ-3016793", "BETIQ-3025308", "BETIQ-3033835", "BETIQ-3042374", "BETIQ-3050925", "BETIQ-3059488", "BETIQ-3068063", "BETIQ-3076650", "BETIQ-3085249", "BETIQ-3093860", "BETIQ-3111118", "BETIQ-3119765", "BETIQ-3128424", "BETIQ-3137095", "BETIQ-3145778", "BETIQ-3154473", "BETIQ-3163180", "BETIQ-3171899", "BETIQ-3180630", "BETIQ-3189373", "BETIQ-3198128", "BETIQ-3206895", "BETIQ-3215674", "BETIQ-3224465", "BETIQ-3233268", "BETIQ-3242083", "BETIQ-3250910", "BETIQ-3259749", "BETIQ-3268600", "BETIQ-3277463", "BETIQ-3286338", "BETIQ-3295225", "BETIQ-3304124", "BETIQ-3313035", "BETIQ-3321958", "BETIQ-3330893", "BETIQ-3339840", "BETIQ-3348799", "BETIQ-3357770", "BETIQ-3366753", "BETIQ-3375748", "BETIQ-3384755", "BETIQ-3393774", "BETIQ-3402805", "BETIQ-3411848", "BETIQ-3420903", "BETIQ-3429970", "BETIQ-3439049", "BETIQ-3448140", "BETIQ-3466358", "BETIQ-3475485", "BETIQ-3484624", "BETIQ-3493775", "BETIQ-3502938", "BETIQ-3512113", "BETIQ-3521300", "BETIQ-3530499", "BETIQ-3539710", "BETIQ-3548933", "BETIQ-3558168", "BETIQ-3567415", "BETIQ-3576674", "BETIQ-3585945", "BETIQ-3595228", "BETIQ-3604523", "BETIQ-3613830", "BETIQ-3623149", "BETIQ-3632480", "BETIQ-3641823", "BETIQ-3651178", "BETIQ-3660545", "BETIQ-3669924", "BETIQ-3679315", "BETIQ-3688718", "BETIQ-3698133", "BETIQ-3707560", "BETIQ-3716999", "BETIQ-3726450", "BETIQ-3735913", "BETIQ-3745388", "BETIQ-3754875", "BETIQ-3764374", "BETIQ-3773885", "BETIQ-3783408", "BETIQ-3792943", "BETIQ-3802490", "BETIQ-3812049", "BETIQ-3821620", "BETIQ-3831203", "BETIQ-3840798", "BETIQ-3850405", "BETIQ-3860024", "BETIQ-3869655", "BETIQ-3879298", "BETIQ-3888953", "BETIQ-3898620", "BETIQ-3908299", "BETIQ-3917990", "BETIQ-3927693", "BETIQ-3937408", "BETIQ-3947135", "BETIQ-3956874", "BETIQ-3976388", "BETIQ-3986163", "BETIQ-3995950", "BETIQ-4005749", "BETIQ-4015560", "BETIQ-4025383", "BETIQ-4035218", "BETIQ-4045065", "BETIQ-4054924", "BETIQ-4064795", "BETIQ-4074678", "BETIQ-4094480", "BETIQ-4104399", "BETIQ-4114330", "BETIQ-4124273", "BETIQ-4134228", "BETIQ-4144195", "BETIQ-4154174", "BETIQ-4164165", "BETIQ-4174168", "BETIQ-4184183", "BETIQ-4194210", "BETIQ-4204249", "BETIQ-4214300", "BETIQ-4224363", "BETIQ-4234438", "BETIQ-4244525", "BETIQ-4254624", "BETIQ-4264735", "BETIQ-4274858", "BETIQ-4284993", "BETIQ-4295140", "BETIQ-4305299", "BETIQ-4315470", "BETIQ-4325653", "BETIQ-4335848", "BETIQ-4346055", "BETIQ-4356274", "BETIQ-4366505", "BETIQ-4376748", "BETIQ-4387003", "BETIQ-4397270", "BETIQ-4407549", "BETIQ-4417840", "BETIQ-4428143", "BETIQ-4438458", "BETIQ-4448785", "BETIQ-4459124", "BETIQ-4469475", "BETIQ-4479838", "BETIQ-4490213", "BETIQ-4500600", "BETIQ-4510999", "BETIQ-4521410", "BETIQ-4531833", "BETIQ-4542268", "BETIQ-4552715", "BETIQ-4563174", "BETIQ-4573645", "BETIQ-4584128", "BETIQ-4594623", "BETIQ-4605130", "BETIQ-4615649", "BETIQ-4626180", "BETIQ-4636723", "BETIQ-4647278", "BETIQ-4657845", "BETIQ-4668424", "BETIQ-4679015", "BETIQ-4689618", "BETIQ-4700233", "BETIQ-4710860", "BETIQ-4721499", "BETIQ-4732150", "BETIQ-4742813", "BETIQ-4753488", "BETIQ-4764175", "BETIQ-4774874", "BETIQ-4785585", "BETIQ-4796308", "BETIQ-4807043", "BETIQ-4817790", "BETIQ-4828549", "BETIQ-4839320", "BETIQ-4850103", "BETIQ-4860898", "BETIQ-4871705", "BETIQ-4882524", "BETIQ-4893355", "BETIQ-4904198", "BETIQ-4915053", "BETIQ-4925920", "BETIQ-4936799", "BETIQ-4947690", "BETIQ-4958593", "BETIQ-4969508", "BETIQ-4980435", "BETIQ-4991374", "BETIQ-5002325", "BETIQ-5013288", "BETIQ-5024263", "BETIQ-5035250", "BETIQ-5046249", "BETIQ-5057260", "BETIQ-5068283", "BETIQ-5079318", "BETIQ-5090365", "BETIQ-5101424", "BETIQ-5112495", "BETIQ-5123578", "BETIQ-5134673", "BETIQ-5145780", "BETIQ-5156899", "BETIQ-5168030", "BETIQ-5179173", "BETIQ-5190328", "BETIQ-5201495", "BETIQ-5212674", "BETIQ-5223865", "BETIQ-5235068", "BETIQ-5246283", "BETIQ-5257510", "BETIQ-5268749", "BETIQ-5280000", "BETIQ-5291263", "BETIQ-5302538", "BETIQ-5313825", "BETIQ-5325124", "BETIQ-5336435", "BETIQ-5347758", "BETIQ-5359093", "BETIQ-5370440", "BETIQ-5381799", "BETIQ-5393170", "BETIQ-5404553", "BETIQ-5415948", "BETIQ-5427355", "BETIQ-5438774", "BETIQ-5450205", "BETIQ-5461648", "BETIQ-5473103", "BETIQ-5484570", "BETIQ-5496049", "BETIQ-5507540", "BETIQ-5519043", "BETIQ-5530558", "BETIQ-5542085", "BETIQ-5553624", "BETIQ-5576738", "BETIQ-5588313", "BETIQ-5599900", "BETIQ-5611499", "BETIQ-5623110", "BETIQ-5634733", "BETIQ-5646368", "BETIQ-5658015", "BETIQ-5669674", "BETIQ-5681345", "BETIQ-5693028", "BETIQ-5704723", "BETIQ-5716430", "BETIQ-5728149", "BETIQ-5739880", "BETIQ-5751623", "BETIQ-5763378", "BETIQ-5775145", "BETIQ-5786924", "BETIQ-5798715", "BETIQ-5810518", "BETIQ-5822333", "BETIQ-5834160", "BETIQ-5845999", "BETIQ-5857850", "BETIQ-5869713", "BETIQ-5881588", "BETIQ-5893475", "BETIQ-5905374", "BETIQ-5917285", "BETIQ-5929208", "BETIQ-5941143", "BETIQ-5953090", "BETIQ-5965049", "BETIQ-5977020", "BETIQ-5989003", "BETIQ-6000998", "BETIQ-6013005", "BETIQ-6025024", "BETIQ-6037055", "BETIQ-6049098", "BETIQ-6061153", "BETIQ-6073220", "BETIQ-6085299", "BETIQ-6097390", "BETIQ-6109493", "BETIQ-6121608", "BETIQ-6133735", "BETIQ-6145874", "BETIQ-6158025", "BETIQ-6170188", "BETIQ-6182363", "BETIQ-6194550", "BETIQ-6206749", "BETIQ-6218960", "BETIQ-6231183", "BETIQ-6243418", "BETIQ-6255665", "BETIQ-6267924", "BETIQ-6280195", "BETIQ-6292478", "BETIQ-6304773", "BETIQ-6317080", "BETIQ-6329399", "BETIQ-6341730", "BETIQ-6354073", "BETIQ-6366428", "BETIQ-6378795", "BETIQ-6391174", "BETIQ-6403565", "BETIQ-6415968", "BETIQ-6428383", "BETIQ-6440810", "BETIQ-6453249", "BETIQ-6465700", "BETIQ-6478163", "BETIQ-6490638", "BETIQ-6503125", "BETIQ-6515624", "BETIQ-6528135", "BETIQ-6540658", "BETIQ-6553193", "BETIQ-6565740", "BETIQ-6578299", "BETIQ-6590870", "BETIQ-6603453", "BETIQ-6616048", "BETIQ-6628655", "BETIQ-6641274", "BETIQ-21082643", "BETIQ-21098958", "BETIQ-21115285", "BETIQ-21131624", "BETIQ-21147975", "BETIQ-21164338", "BETIQ-21180713", "BETIQ-21197100", "BETIQ-21213499", "BETIQ-21229910", "BETIQ-21246333", "BETIQ-21262768", "BETIQ-21279215", "BETIQ-21295674", "BETIQ-21312145", "BETIQ-21328628", "BETIQ-21345123", "BETIQ-21361630", "BETIQ-21378149", "BETIQ-21394680", "BETIQ-21411223", "BETIQ-21427778", "BETIQ-21444345", "BETIQ-21460924", "BETIQ-21477515", "BETIQ-21494118", "BETIQ-21510733", "BETIQ-21527360", "BETIQ-21543999", "BETIQ-21560650", "BETIQ-21577313", "BETIQ-21593988", "BETIQ-21610675", "BETIQ-21627374", "BETIQ-21644085", "BETIQ-21660808", "BETIQ-21677543", "BETIQ-21694290", "BETIQ-21711049", "BETIQ-21727820", "BETIQ-21744603", "BETIQ-21761398", "BETIQ-21778205", "BETIQ-21795024", "BETIQ-21811855", "BETIQ-21828698", "BETIQ-21845553", "BETIQ-21862420", "BETIQ-21879299", "BETIQ-21896190", "BETIQ-21913093", "BETIQ-21930008", "BETIQ-21946935", "BETIQ-21963874", "BETIQ-21980825", "BETIQ-21997788", "BETIQ-22014763", "BETIQ-22031750", "BETIQ-22048749", "BETIQ-22065760", "BETIQ-22082783", "BETIQ-22099818", "BETIQ-22116865", "BETIQ-22133924", "BETIQ-22150995", "BETIQ-22168078", "BETIQ-22185173", "BETIQ-22202280", "BETIQ-22219399", "BETIQ-22236530", "BETIQ-22253673", "BETIQ-22270828", "BETIQ-22287995", "BETIQ-22305174", "BETIQ-22322365", "BETIQ-22339568", "BETIQ-22356783", "BETIQ-22374010", "BETIQ-22391249", "BETIQ-22408500", "BETIQ-22425763", "BETIQ-22443038", "BETIQ-22460325", "BETIQ-22477624", "BETIQ-22494935", "BETIQ-22512258", "BETIQ-22529593", "BETIQ-22546940", "BETIQ-22564299", "BETIQ-22581670", "BETIQ-22599053", "BETIQ-22616448", "BETIQ-22633855", "BETIQ-22651274", "BETIQ-22668705", "BETIQ-22686148", "BETIQ-22703603", "BETIQ-22721070", "BETIQ-22738549", "BETIQ-22756040", "BETIQ-22773543", "BETIQ-22791058", "BETIQ-22808585", "BETIQ-22826124", "BETIQ-22843675", "BETIQ-22861238", "BETIQ-22878813", "BETIQ-23002174", "BETIQ-23019845", "BETIQ-23037528", "BETIQ-23055223", "BETIQ-23072930", "BETIQ-23090649", "BETIQ-23108380", "BETIQ-23126123", "BETIQ-23143878", "BETIQ-23161645", "BETIQ-23179424", "BETIQ-23197215", "BETIQ-23215018", "BETIQ-23232833", "BETIQ-23250660", "BETIQ-23268499", "BETIQ-23286350", "BETIQ-23304213", "BETIQ-23322088", "BETIQ-23339975", "BETIQ-23357874", "BETIQ-23375785", "BETIQ-23393708", "BETIQ-23411643", "BETIQ-23429590", "BETIQ-23447549", "BETIQ-23465520", "BETIQ-23483503", "BETIQ-23501498", "BETIQ-23519505", "BETIQ-23537524", "BETIQ-23555555", "BETIQ-23573598", "BETIQ-23591653", "BETIQ-23609720", "BETIQ-23627799", "BETIQ-23645890", "BETIQ-2366930", "BETIQ-23682108", "BETIQ-23700235", "BETIQ-23718374", "BETIQ-23736525", "BETIQ-23754688", "BETIQ-23772863", "BETIQ-23791050", "BETIQ-23809249", "BETIQ-23827460", "BETIQ-23845683", "BETIQ-23863918", "BETIQ-23882165", "BETIQ-23900424", "BETIQ-23918695", "BETIQ-23936978", "BETIQ-23955273", "BETIQ-23973580", "BETIQ-23991899", "BETIQ-24010230", "BETIQ-24028573", "BETIQ-24046928", "BETIQ-24065295", "BETIQ-24083674", "BETIQ-24102065", "BETIQ-24120468", "BETIQ-24138883", "BETIQ-24157310", "BETIQ-24175749", "BETIQ-24194200", "BETIQ-24212663", "BETIQ-24231138", "BETIQ-24249625", "BETIQ-24268124", "BETIQ-24286635", "BETIQ-24305158", "BETIQ-24323693", "BETIQ-24342240", "BETIQ-24360799", "BETIQ-24379370", "BETIQ-24397953", "BETIQ-24416548", "BETIQ-24435155", "BETIQ-24453774", "BETIQ-24472405", "BETIQ-24491048", "BETIQ-24509703", "BETIQ-24528370", "BETIQ-24547049", "BETIQ-24565740", "BETIQ-24584443", "BETIQ-24603158", "BETIQ-24621885", "BETIQ-24640624", "BETIQ-24659375", "BETIQ-24678138", "BETIQ-24696913", "BETIQ-24715700", "BETIQ-24734499", "BETIQ-24753310", "BETIQ-24772133", "BETIQ-24790968", "BETIQ-24809815", "BETIQ-24828674", "BETIQ-24847545", "BETIQ-24866428", "BETIQ-24885323", "BETIQ-24904230", "BETIQ-24923149", "BETIQ-24942080", "BETIQ-24961023", "BETIQ-24979978", "BETIQ-24998945", "BETIQ-25017924", "BETIQ-25036915", "BETIQ-25055918", "BETIQ-25074933", "BETIQ-25093960", "BETIQ-25112999", "BETIQ-25132050", "BETIQ-25151113", "BETIQ-25170188", "BETIQ-25189275", "BETIQ-25208374", "BETIQ-25227485", "BETIQ-25246608", "BETIQ-25265743", "BETIQ-25284890", "BETIQ-25304049", "BETIQ-25323220", "BETIQ-25342403", "BETIQ-25361598", "BETIQ-25380805", "BETIQ-25400024", "BETIQ-25419255", "BETIQ-25438498", "BETIQ-25457753", "BETIQ-25477020", "BETIQ-25496299", "BETIQ-25515590", "BETIQ-25534893", "BETIQ-25554208", "BETIQ-25573535", "BETIQ-25592874", "BETIQ-25612225", "BETIQ-25631588", "BETIQ-25650963", "BETIQ-25670350", "BETIQ-25689749", "BETIQ-25709160", "BETIQ-25728583", "BETIQ-25748018", "BETIQ-25767465", "BETIQ-25786924", "BETIQ-25806395", "BETIQ-25825878", "BETIQ-25845373", "BETIQ-25864880", "BETIQ-25884399", "BETIQ-25903930", "BETIQ-25923473", "BETIQ-25943028", "BETIQ-25962595", "BETIQ-25982174", "BETIQ-26001765", "BETIQ-26021368", "BETIQ-26040983", "BETIQ-26060610", "BETIQ-26080249", "BETIQ-26099900", "BETIQ-26119563", "BETIQ-26139238", "BETIQ-26158925", "BETIQ-26178624", "BETIQ-26198335", "BETIQ-26218058", "BETIQ-26237793", "BETIQ-26257540", "BETIQ-26277299", "BETIQ-26297070", "BETIQ-26316853", "BETIQ-26336648", "BETIQ-26356455", "BETIQ-26376274", "BETIQ-26396105", "BETIQ-26415948", "BETIQ-26435803", "BETIQ-26455670"
-];
-
+const VALID_CODES_ARRAY = ["BETIQ-5", "BETIQ-24", "BETIQ-55", "BETIQ-98", "BETIQ-153", "BETIQ-26435803", "BETIQ-26455670"];
 const VALID_USER_CODES = new Set(VALID_CODES_ARRAY);
 
-const Logo: React.FC<{ size?: number }> = ({ size = 48 }) => (
-  <div className="flex items-center gap-3">
-    <div className="relative group">
-       <div className={`absolute inset-0 bg-gradient-to-br from-blue-500 to-orange-500 blur-xl opacity-20 group-hover:opacity-40 transition-opacity`}></div>
-       <div className="bg-[#0b1121] p-3 rounded-2xl border border-white/10 shadow-2xl relative z-10">
-         <BrainCircuit size={size} className="text-blue-400" />
-         <ChartUp size={size/2.5} className="absolute -top-1 -right-1 text-orange-400 bg-[#0b1121] rounded-full p-0.5 border border-white/5" />
-       </div>
-    </div>
-    <div className="flex flex-col leading-none">
-      <h1 className="text-3xl font-black italic tracking-tighter">
-        <span className="text-white">BETI</span>
-        <span className="text-[#f97316]">Q</span>
-      </h1>
-      <span className="text-[8px] font-black text-blue-400 uppercase tracking-[0.3em] mt-1">Pariez avec intelligence</span>
-    </div>
-  </div>
-);
-
-const SplashScreen: React.FC = () => (
-  <div className="fixed inset-0 z-[100] bg-[#020617] flex flex-col items-center justify-center animate-in fade-in duration-700">
-    <div className="relative">
-      <div className="absolute inset-0 bg-blue-500 blur-[80px] opacity-20 animate-pulse"></div>
-      <div className="relative z-10 flex flex-col items-center gap-6">
-        <div className="p-8 bg-[#0b1121] rounded-[2.5rem] border border-white/5 shadow-2xl animate-bounce">
-          <BrainCircuit size={80} className="text-blue-400" />
-          <ChartUp size={32} className="absolute top-4 right-4 text-orange-400 animate-pulse" />
-        </div>
-        <div className="text-center">
-          <h1 className="text-6xl font-black tracking-tighter italic">
-            <span className="text-white">BETI</span>
-            <span className="text-[#f97316]">Q</span>
-          </h1>
-          <div className="flex items-center gap-2 mt-2 justify-center">
-            <div className="h-1 w-8 bg-blue-500 rounded-full animate-pulse"></div>
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">IA ANALYTICS</span>
-            <div className="h-1 w-8 bg-orange-500 rounded-full animate-pulse"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3">
-      <div className="flex gap-1.5">
-        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce delay-75"></div>
-        <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce delay-150"></div>
-        <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce delay-300"></div>
-      </div>
-      <span className="text-[8px] font-black text-slate-700 uppercase tracking-widest italic">V3.0 Engine Scanning...</span>
-    </div>
-  </div>
-);
-
-const STRINGS = {
+const STRINGS: Record<Language, any> = {
   FR: {
-    home: "Pronos", vip: "Espace VIP", menu: "Compte", loading: "Analyse IA...", noMatches: "Aucun match trouvé.",
-    vipTitle: "PREMIUM VIP", vipSafeTitle: "SÉLECTION VIP SAFE", vipButton: "DEVENIR VIP",
-    settingsTitle: "MON PROFIL", language: "Langue", helpTitle: "Assistance", helpDesc: "Support WhatsApp",
-    analysis: "Expertise IA", signal: "Signal de Confiance", locked: "MATCH RÉSERVÉ VIP",
-    start: "Accéder aux Pronostics", searchPlaceholder: "Rechercher un match ou une équipe...",
-    disclaimer: "Attention : Ces résultats sont basés sur une analyse IA. Ne pariez que ce que vous pouvez vous permettre de perdre."
+    loading: "Analyse IA en cours...",
+    disclaimer: "Jouer comporte des risques : endettement, isolement. Appelez le 09 74 75 13 13.",
+    signal: "SIGNAUX PRÉDICTIFS",
+    analysis: "EXPERTISE TACTIQUE",
+    language: "LANGUE"
   },
   EN: {
-    home: "Predictions", vip: "VIP Area", menu: "Profile", loading: "AI Thinking...", noMatches: "No matches found.",
-    vipTitle: "VIP PREMIUM", vipSafeTitle: "VIP SAFE SELECTION", vipButton: "GET VIP",
-    settingsTitle: "PROFILE", language: "Language", helpTitle: "Help Center", helpDesc: "WhatsApp Support",
-    analysis: "AI Expertise", signal: "Confidence Signal", locked: "VIP ELITE MATCH",
-    start: "Access Predictions", searchPlaceholder: "Search match or team...",
-    disclaimer: "Warning: These results are AI-generated. Gambling involves risk. Only bet what you can afford to lose."
+    loading: "AI Analysis in progress...",
+    disclaimer: "Gambling involves risks. Play responsibly.",
+    signal: "PREDICTIVE SIGNALS",
+    analysis: "TACTICAL EXPERTISE",
+    language: "LANGUAGE"
   }
 };
 
-const VipSelectionSection: React.FC<{ matches: FootballMatch[], language: Language }> = ({ matches, language }) => {
-  const navigate = useNavigate();
-  const S = STRINGS[language];
-  if (matches.length === 0) return null;
+const AuthView: React.FC = () => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  return (
-    <div className="bg-[#0b1121] rounded-[2.5rem] border border-orange-500/30 p-6 space-y-6 shadow-2xl relative overflow-hidden group mb-10">
-      <div className="absolute top-4 right-4 opacity-5 rotate-12 group-hover:scale-110 transition-transform text-orange-500">
-        <Crown size={120} />
-      </div>
-      <div className="flex items-center gap-3 relative z-10">
-        <div className="p-2 bg-orange-500/20 rounded-xl"><Crown className="text-orange-500" size={20} /></div>
-        <h2 className="text-sm font-black text-orange-500 uppercase tracking-widest">{S.vipSafeTitle}</h2>
-      </div>
-      <div className="space-y-3 relative z-10">
-        {matches.map((match) => (
-          <div 
-            key={match.id}
-            onClick={() => navigate(`/match/${match.id}`, { state: { match } })}
-            className="bg-[#151c30] border border-white/5 rounded-3xl p-5 flex items-center justify-between group/item hover:bg-[#1a233b] transition-all cursor-pointer active:scale-[0.98]"
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex -space-x-2">
-                <div className="w-10 h-10 flex items-center justify-center bg-slate-800 rounded-full border border-white/5 z-10">
-                  <img src={match.homeLogo} className="w-full h-full object-contain" alt="home" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                  <Shield size={16} className="absolute text-slate-500 -z-10" />
-                </div>
-                <div className="w-10 h-10 flex items-center justify-center bg-slate-800 rounded-full border border-white/5 z-0">
-                  <img src={match.awayLogo} className="w-full h-full object-contain" alt="away" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                  <Shield size={16} className="absolute text-slate-500 -z-10" />
-                </div>
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-white">{match.homeTeam} - {match.awayTeam}</h4>
-                <p className="text-[10px] font-black text-orange-500/80 uppercase tracking-widest">CONFIANCE MAX</p>
-              </div>
-            </div>
-            <ChevronRight className="text-orange-500 group-hover/item:translate-x-1 transition-transform" size={20} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const PredictionsView: React.FC<{ language: Language, isVip: boolean }> = ({ language, isVip }) => {
-  const [matches, setMatches] = useState<FootballMatch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const navigate = useNavigate();
-  const S = STRINGS[language];
-
-  const loadMatches = async (date: string) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
-    const data = await fetchMatchesByDate(date);
-    const mapped: FootballMatch[] = data.map(m => ({
-      id: m.match_id, league: m.league_name, homeTeam: m.match_hometeam_name,
-      awayTeam: m.match_awayteam_name, homeLogo: m.team_home_badge,
-      awayLogo: m.team_away_badge, time: m.match_time, status: m.match_status,
-      stats: { homeForm: [], awayForm: [], homeRank: 0, awayRank: 0, h2h: '' },
-      predictions: []
-    }));
-    setMatches(mapped);
-    setLoading(false);
+    setError('');
+    try {
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+      }
+    } catch (err: any) {
+      if (err.code === 'auth/unauthorized-domain') {
+        setError("Domaine non autorisé. Ajoutez ce domaine dans la console Firebase (Authentification > Paramètres > Domaines autorisés).");
+      } else {
+        setError(err.message.includes('auth/invalid-credential') ? 'Identifiants invalides' : 'Erreur de connexion');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { loadMatches(selectedDate); }, [selectedDate]);
-
-  const { vipTopMatches, filteredMatches } = useMemo(() => {
-    let result = matches.filter(m => 
-      m.homeTeam.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      m.awayTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.league.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    if (isVip) {
-      return { 
-        vipTopMatches: searchQuery === "" ? result.slice(0, 3) : [], 
-        filteredMatches: searchQuery === "" ? result.slice(3) : result 
-      };
-    } else {
-      return { 
-        vipTopMatches: [], 
-        filteredMatches: result.slice(0, 4) 
-      };
+  const handleGoogleSignIn = async () => {
+    setError('');
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err: any) {
+      if (err.code === 'auth/unauthorized-domain') {
+        setError("Domaine non autorisé. Ajoutez ce domaine dans la console Firebase.");
+      } else {
+        setError("Erreur lors de la connexion Google");
+      }
     }
-  }, [matches, searchQuery, isVip]);
+  };
 
   return (
-    <div className="pb-32 px-5 animate-in fade-in duration-500 max-w-2xl mx-auto">
-      <header className="flex items-center justify-between py-8">
-        <Logo size={28} />
-        <button onClick={() => loadMatches(selectedDate)} className="p-3 bg-slate-900/50 rounded-2xl border border-white/5">
-          <RefreshCw size={20} className={loading ? 'animate-spin text-orange-400' : 'text-slate-400'} />
-        </button>
-      </header>
-
-      <div className="mb-6 p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl flex items-start gap-3">
-        <AlertTriangle size={20} className="text-orange-500 flex-shrink-0 mt-0.5" />
-        <p className="text-[10px] font-bold text-orange-400 leading-tight tracking-wide">{S.disclaimer}</p>
-      </div>
-
-      <div className="mb-8 relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-        <input 
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={S.searchPlaceholder}
-          className="w-full bg-slate-900/50 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm font-medium outline-none focus:border-orange-500 transition-all text-white placeholder:text-slate-600"
-        />
-      </div>
-
-      <div className="flex gap-2 overflow-x-auto pb-8 no-scrollbar">
-        {[0, 1, 2, 3, 4, 5, 6].map(offset => {
-          const d = new Date();
-          d.setDate(d.getDate() + offset);
-          const dateStr = d.toISOString().split('T')[0];
-          const label = offset === 0 ? 'Auj.' : offset === 1 ? 'Dem.' : d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
-          return (
-            <button 
-              key={dateStr} 
-              onClick={() => setSelectedDate(dateStr)} 
-              className={`px-6 py-3.5 rounded-2xl text-xs font-black border transition-all whitespace-nowrap ${
-                selectedDate === dateStr ? 'bg-orange-600 border-orange-400 text-white shadow-lg shadow-orange-600/20' : 'bg-slate-900/50 border-white/5 text-slate-500'
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
-
-      {loading ? (
-        <div className="flex flex-col items-center py-32 gap-6">
-          <Loader2 className="animate-spin text-orange-500" size={56} />
-          <span className="text-xs font-bold text-slate-600 tracking-widest uppercase">{S.loading}</span>
+    <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center p-6">
+      <div className="mb-8 text-center">
+        <div className="bg-[#0b1121] p-4 rounded-3xl border border-white/10 w-fit mx-auto mb-4 shadow-2xl">
+          <BrainCircuit size={40} className="text-blue-400" />
         </div>
-      ) : (
-        <div className="space-y-6">
-          {(isVip && searchQuery === "") && (
-            <VipSelectionSection matches={vipTopMatches} language={language} />
-          )}
-          <div className="grid grid-cols-1 gap-6">
-            {filteredMatches.length === 0 ? (
-              <div className="text-center py-20 bg-slate-900/20 rounded-[3rem] border border-white/5 border-dashed">
-                <p className="text-slate-500 font-medium">Aucun match disponible.</p>
-              </div>
-            ) : (
-              filteredMatches.map((match, idx) => {
-                const forceLock = !isVip && idx === 3;
-                return (
-                  <MatchCard 
-                    key={match.id} 
-                    match={match} 
-                    isVipUser={isVip} 
-                    forceLock={forceLock}
-                    onClick={(m) => navigate(`/match/${m.id}`, { state: { match: m, forceLock } })} 
-                  />
-                );
-              })
-            )}
+        <h1 className="text-3xl font-black italic tracking-tighter text-white">BETI<span className="text-orange-500">Q</span></h1>
+      </div>
+
+      <div className="w-full max-w-sm bg-[#0b1121] border border-white/5 p-8 rounded-[2.5rem] shadow-2xl">
+        <div className="flex bg-[#020617] p-1 rounded-2xl mb-8 border border-white/5">
+          <button onClick={() => setIsLogin(true)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${isLogin ? 'bg-orange-500 text-slate-950' : 'text-slate-500'}`}>Connexion</button>
+          <button onClick={() => setIsLogin(false)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${!isLogin ? 'bg-orange-500 text-slate-950' : 'text-slate-500'}`}>Inscription</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="relative">
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
+            <input type="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-[#020617] border border-white/10 rounded-xl py-4 pl-12 text-xs text-white outline-none focus:border-orange-500/50" />
           </div>
+          <div className="relative">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
+            <input type="password" placeholder="Mot de passe" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[#020617] border border-white/10 rounded-xl py-4 pl-12 text-xs text-white outline-none focus:border-orange-500/50" />
+          </div>
+          {error && <p className="text-[10px] text-rose-500 font-bold text-center leading-tight bg-rose-500/10 p-2 rounded-lg">{error}</p>}
+          <button disabled={loading} className="w-full bg-orange-500 text-slate-950 font-black py-4 rounded-xl text-[11px] uppercase italic tracking-widest shadow-lg shadow-orange-500/20 active:scale-95 transition-all disabled:opacity-50">
+            {loading ? <Loader2 className="animate-spin mx-auto" size={16} /> : (isLogin ? 'ENTRER' : 'CRÉER COMPTE')}
+          </button>
+        </form>
+
+        <div className="relative flex items-center gap-4 my-8">
+          <div className="flex-1 h-px bg-white/5"></div>
+          <span className="text-[8px] font-black text-slate-700 uppercase">OU</span>
+          <div className="flex-1 h-px bg-white/5"></div>
         </div>
-      )}
+
+        <button onClick={handleGoogleSignIn} className="w-full bg-white/5 border border-white/10 text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-3">
+          <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
+          Google
+        </button>
+      </div>
     </div>
   );
 };
@@ -277,21 +144,13 @@ const MatchDetailView: React.FC<{ language: Language, isVip: boolean }> = ({ lan
 
   useEffect(() => {
     if (match) {
-      if (!isVip && forcedLock) {
-        setIsLocked(true);
-        return;
-      }
-      const cacheKey = `betiq_v3_cache_${match.id}_${language}`;
+      if (!isVip && forcedLock) { setIsLocked(true); return; }
+      const cacheKey = `betiq_v4_cache_${match.id}_${language}`;
       const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        setData(JSON.parse(cached));
-        return;
-      }
+      if (cached) { setData(JSON.parse(cached)); return; }
       setLoading(true);
       generatePredictionsAndAnalysis(match, language).then(res => {
-        setData(res);
-        setLoading(false);
-        localStorage.setItem(cacheKey, JSON.stringify(res));
+        setData(res); setLoading(false); localStorage.setItem(cacheKey, JSON.stringify(res));
       });
     }
   }, [match, language, isVip, forcedLock]);
@@ -300,91 +159,89 @@ const MatchDetailView: React.FC<{ language: Language, isVip: boolean }> = ({ lan
 
   return (
     <div className="min-h-screen bg-[#020617] pb-32">
-      <nav className="sticky top-0 bg-[#020617]/80 backdrop-blur-2xl p-4 flex items-center justify-between z-30 border-b border-white/5">
-        <button onClick={() => navigate(-1)} className="p-3 bg-slate-900 rounded-2xl"><ChevronLeft size={24} /></button>
-        <div className="text-center truncate px-4">
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-0.5">{match.league}</span>
-          <span className="text-sm font-bold text-white truncate block">{match.homeTeam} vs {match.awayTeam}</span>
-        </div>
-        <button className="p-3 bg-slate-900 rounded-2xl"><Share2 size={20} /></button>
+      <nav className="sticky top-0 bg-[#020617]/90 backdrop-blur-2xl p-4 flex items-center justify-between z-30 border-b border-white/5">
+        <button onClick={() => navigate(-1)} className="p-2 bg-slate-900 rounded-lg"><ChevronLeft size={18} /></button>
+        <span className="text-[10px] font-bold text-white uppercase">{match.homeTeam} VS {match.awayTeam}</span>
+        <button className="p-2 bg-slate-900 rounded-lg"><Share2 size={16} /></button>
       </nav>
 
-      <div className="p-5 space-y-8 max-w-2xl mx-auto">
-        <div className="bg-gradient-to-br from-slate-900 to-slate-950 p-12 rounded-[3.5rem] border border-white/5 shadow-2xl flex items-center justify-around relative overflow-hidden group">
-          <div className="w-1/3 flex flex-col items-center gap-5">
-            <div className="w-24 h-24 flex items-center justify-center bg-slate-800/40 rounded-full border border-white/5 p-4 shadow-xl">
-               <img src={match.homeLogo} className="max-w-full max-h-full object-contain drop-shadow-2xl" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-               <Shield size={48} className="absolute text-slate-700 -z-10" />
-            </div>
-            <span className="text-sm font-black uppercase text-center text-white">{match.homeTeam}</span>
+      <div className="p-5 space-y-6 max-w-2xl mx-auto">
+        {/* Header Match */}
+        <div className="bg-gradient-to-br from-[#0b1121] to-[#020617] p-6 rounded-[2.5rem] border border-white/5 flex items-center justify-around shadow-2xl relative overflow-hidden">
+          <div className="absolute inset-0 bg-blue-500/5 animate-pulse pointer-events-none"></div>
+          <div className="text-center w-1/3">
+             <img src={match.homeLogo} className="w-16 h-16 mx-auto mb-2 object-contain" alt="home" />
+             <p className="text-[10px] font-black text-white uppercase">{match.homeTeam}</p>
           </div>
-          <div className="text-3xl font-black italic text-slate-700 opacity-40">VS</div>
-          <div className="w-1/3 flex flex-col items-center gap-5">
-            <div className="w-24 h-24 flex items-center justify-center bg-slate-800/40 rounded-full border border-white/5 p-4 shadow-xl">
-               <img src={match.awayLogo} className="max-w-full max-h-full object-contain drop-shadow-2xl" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-               <Shield size={48} className="absolute text-slate-700 -z-10" />
-            </div>
-            <span className="text-sm font-black uppercase text-center text-white">{match.awayTeam}</span>
+          <div className="text-2xl font-black italic text-slate-800">VS</div>
+          <div className="text-center w-1/3">
+             <img src={match.awayLogo} className="w-16 h-16 mx-auto mb-2 object-contain" alt="away" />
+             <p className="text-[10px] font-black text-white uppercase">{match.awayTeam}</p>
           </div>
         </div>
 
         {isLocked ? (
-          <div className="bg-slate-900/80 p-12 rounded-[3.5rem] border border-orange-500/20 text-center space-y-10 shadow-2xl relative overflow-hidden">
-            <div className="p-8 bg-orange-500/10 w-fit mx-auto rounded-[2rem] border border-orange-500/20"><Lock size={56} className="text-orange-500" /></div>
-            <div className="space-y-4">
-              <h2 className="text-3xl font-black text-white italic tracking-tighter uppercase">ACCÈS VIP REQUIS</h2>
-              <p className="text-base text-slate-400 leading-relaxed font-medium">Analyse premium scellée. Débloquez les scores exacts et les probabilités IA maintenant.</p>
-            </div>
-            <button onClick={() => navigate('/settings')} className="w-full bg-orange-500 text-slate-950 font-black py-6 rounded-2xl shadow-xl shadow-orange-500/30 active:scale-95 transition-all text-lg uppercase">Activer l'accès élite</button>
+          <div className="bg-[#0b1121] p-10 rounded-[2.5rem] border border-orange-500/20 text-center space-y-6 shadow-2xl">
+            <Lock size={40} className="text-orange-500 mx-auto" />
+            <h2 className="text-xl font-black text-white uppercase italic">PRONOSTIC ÉLITE</h2>
+            <p className="text-[10px] text-slate-500 font-bold uppercase">Abonnez-vous pour débloquer les scores exacts et l'analyse buteurs.</p>
+            <button onClick={() => navigate('/settings')} className="w-full bg-orange-500 text-slate-950 font-black py-4 rounded-xl text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all">S'ABONNER</button>
           </div>
         ) : loading ? (
-          <div className="flex flex-col items-center py-24 gap-10">
-            <Loader2 className="animate-spin text-orange-500" size={72} />
-            <p className="text-xs font-black text-slate-500 tracking-[0.5em] uppercase">IA en cours de calcul...</p>
+          <div className="flex flex-col items-center py-20 gap-4">
+            <Loader2 className="animate-spin text-orange-500" size={40} />
+            <p className="text-[8px] font-black text-slate-700 uppercase tracking-widest italic">{S.loading}</p>
           </div>
         ) : (
-          <div className="space-y-10">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 px-2"><TrendingUp size={20} className="text-orange-400" /><h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">{S.signal}</h3></div>
-              {data.predictions.map((p, i) => (
-                <div key={i} className="bg-slate-900/80 p-8 rounded-[3rem] border border-white/5 flex justify-between items-center shadow-xl">
-                  <div>
-                    <span className="text-[11px] font-black text-orange-400 uppercase tracking-widest block mb-2">{p.type}</span>
-                    <div className="text-3xl font-black text-white italic">{p.recommendation}</div>
-                  </div>
-                  <div className="text-right flex flex-col items-end gap-2">
-                    <div className="text-4xl font-black text-white">{p.probability}%</div>
-                    <ConfidenceIndicator level={p.confidence as Confidence} />
-                  </div>
-                </div>
-              ))}
+          <div className="space-y-6 animate-in fade-in duration-700">
+            {/* 1X2 / OVER-UNDER / BTTS Grid */}
+            <div className="grid grid-cols-1 gap-4">
+               {data.predictions.map((p, i) => (
+                 <div key={i} className="bg-[#0b1121] p-5 rounded-[2rem] border border-white/5 flex justify-between items-center group hover:border-orange-500/30 transition-all">
+                    <div className="space-y-1">
+                       <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest">{p.type}</span>
+                       <p className="text-xl font-black text-white italic uppercase tracking-tighter">{p.recommendation}</p>
+                    </div>
+                    <div className="text-right">
+                       <div className="text-2xl font-black text-white mb-1">{p.probability}%</div>
+                       <ConfidenceIndicator level={p.confidence as Confidence} />
+                    </div>
+                 </div>
+               ))}
             </div>
 
-            {isVip && data.vipInsight && (
-              <div className="space-y-10">
-                <div>
-                   <div className="flex items-center gap-2 mb-4 px-2"><Target size={20} className="text-orange-500" /><h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">SCORES EXACTS PRÉVUS</h3></div>
-                   <div className="grid grid-cols-2 gap-5">
-                    {data.vipInsight.exactScores.map((s, i) => (
-                      <div key={i} className="bg-orange-500/5 border border-orange-500/20 p-10 rounded-[2.5rem] text-center shadow-inner group hover:bg-orange-500/10 transition-all">
-                        <span className="text-[10px] font-black text-orange-500 uppercase block mb-2 tracking-widest italic">IA CHOICE</span>
-                        <span className="text-5xl font-black text-white italic">{s}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="bg-slate-900/50 p-12 rounded-[3.5rem] border border-white/5 space-y-8 shadow-2xl relative group overflow-hidden">
-              <div className="absolute top-0 left-0 w-2 h-full bg-orange-600"></div>
-              <div className="flex items-center gap-3"><ShieldCheck size={24} className="text-orange-400" /><h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">{S.analysis}</h3></div>
-              <p className="text-[16px] text-slate-300 leading-relaxed font-medium">{data.analysis}</p>
+            {/* Tactical Analysis */}
+            <div className="bg-[#0b1121]/50 p-6 rounded-[2rem] border-l-4 border-orange-600 border-r border-t border-b border-white/5 space-y-4">
+               <div className="flex items-center gap-2">
+                 <ShieldCheck size={16} className="text-orange-400" />
+                 <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-500">{S.analysis}</h3>
+               </div>
+               <p className="text-[11px] text-slate-300 leading-relaxed font-medium uppercase italic tracking-tight">{data.analysis}</p>
             </div>
             
-            <div className="text-center p-6 border-t border-white/5">
-               <p className="text-[10px] text-slate-600 font-bold leading-relaxed">{S.disclaimer}</p>
-            </div>
+            {/* VIP Insights Extra */}
+            {data.vipInsight && (
+              <div className="bg-[#0b1121] p-6 rounded-[2rem] border border-orange-500/10 space-y-6 shadow-2xl">
+                 <div className="flex items-center gap-2">
+                    <Star size={14} className="text-orange-500 fill-orange-500" />
+                    <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-500">INSIGHTS VIP</h3>
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5">
+                       <span className="text-[8px] font-black text-slate-600 uppercase block mb-2">Scores Exacts</span>
+                       <div className="flex gap-2">
+                          {data.vipInsight.exactScores.map((s, idx) => (
+                            <span key={idx} className="bg-orange-500/10 text-orange-500 px-3 py-1 rounded-lg text-xs font-black">{s}</span>
+                          ))}
+                       </div>
+                    </div>
+                    <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5">
+                       <span className="text-[8px] font-black text-slate-600 uppercase block mb-2">Fait Clé</span>
+                       <p className="text-[9px] text-white font-bold leading-tight uppercase italic">{data.vipInsight.keyFact}</p>
+                    </div>
+                 </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -392,152 +249,304 @@ const MatchDetailView: React.FC<{ language: Language, isVip: boolean }> = ({ lan
   );
 };
 
-const SettingsView: React.FC<{ language: Language, setLanguage: (l: Language) => void, isVip: boolean, setIsVip: (v: boolean) => void }> = ({ language, setLanguage, isVip, setIsVip }) => {
+const PredictionsView: React.FC<{ 
+  matches: FootballMatch[], 
+  loading: boolean, 
+  language: Language, 
+  isVip: boolean, 
+  selectedDate: string,
+  onDateChange: (date: string) => void,
+  onRefresh: () => void 
+}> = ({ matches, loading, language, isVip, selectedDate, onDateChange, onRefresh }) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
+  const S = STRINGS[language];
+
+  const filteredMatches = useMemo(() => {
+    return matches.filter(m => 
+      m.homeTeam.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      m.awayTeam.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [matches, searchQuery]);
+
+  const ELITE_TEAMS = ['Real Madrid', 'Barcelona', 'Manchester City', 'Liverpool', 'PSG', 'Bayern Munich', 'Arsenal', 'Inter'];
+  const isElite = (m: FootballMatch) => ELITE_TEAMS.some(t => m.homeTeam.includes(t) || m.awayTeam.includes(t));
+
+  const freeMatches = filteredMatches.filter(m => !isElite(m)).slice(0, 5);
+  const eliteMatches = filteredMatches.filter(isElite).slice(0, 3);
+
+  return (
+    <div className="pb-32 px-5 max-w-2xl mx-auto">
+      <header className="flex items-center justify-between py-6">
+        <div className="flex items-center gap-2">
+           <BrainCircuit size={24} className="text-blue-400" />
+           <h1 className="text-2xl font-black italic tracking-tighter">BETI<span className="text-orange-500">Q</span></h1>
+        </div>
+        <button onClick={onRefresh} className="p-2 bg-slate-900 rounded-xl"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /></button>
+      </header>
+
+      <DatePicker selectedDate={selectedDate} onDateSelect={onDateChange} />
+
+      <div className="mb-6 relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
+        <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Chercher un match..." className="w-full bg-slate-900/50 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-[10px] text-white font-bold uppercase outline-none" />
+      </div>
+
+      {loading ? (
+        <div className="py-20 flex flex-col items-center gap-4">
+          <Loader2 className="animate-spin text-orange-500" size={32} />
+          <p className="text-[8px] font-black text-slate-700 uppercase">{S.loading}</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {eliteMatches.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 px-1">
+                <Crown size={12} className="text-orange-500" />
+                <h3 className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic">ÉLITE VIP PRÉDICTIONS</h3>
+              </div>
+              {eliteMatches.map(m => (
+                <MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={!isVip} onClick={(m) => navigate(`/match/${m.id}`, { state: { match: m, forceLock: !isVip } })} />
+              ))}
+            </>
+          )}
+
+          <div className="flex items-center gap-2 px-1">
+            <Zap size={12} className="text-blue-400" />
+            <h3 className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic">ANALYSES GRATUITES</h3>
+          </div>
+          {freeMatches.map(m => (
+            <MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={false} onClick={(m) => navigate(`/match/${m.id}`, { state: { match: m, forceLock: false } })} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const Logo: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <div className="flex items-center gap-2">
+    <div className="bg-[#0b1121] p-1.5 rounded-xl border border-white/10">
+      <BrainCircuit size={size} className="text-blue-400" />
+    </div>
+    <div className="flex flex-col leading-none">
+      <h1 className="text-xl font-black italic tracking-tighter">
+        <span className="text-white">BETI</span><span className="text-[#f97316]">Q</span>
+      </h1>
+      <span className="text-[6px] font-black text-blue-400 uppercase tracking-widest mt-0.5">IA ANALYTICS</span>
+    </div>
+  </div>
+);
+
+const DatePicker: React.FC<{ selectedDate: string, onDateSelect: (date: string) => void }> = ({ selectedDate, onDateSelect }) => {
+  const dates = useMemo(() => {
+    const list = [];
+    for (let i = 0; i < 8; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      list.push(d.toISOString().split('T')[0]);
+    }
+    return list;
+  }, []);
+
+  return (
+    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-4 mb-2 -mx-1 px-1">
+      {dates.map((d) => {
+        const isSelected = d === selectedDate;
+        const dateObj = new Date(d);
+        const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short' }).toUpperCase().replace('.', '');
+        const dayNum = dateObj.getDate();
+        
+        return (
+          <button
+            key={d}
+            onClick={() => onDateSelect(d)}
+            className={`flex-shrink-0 flex flex-col items-center justify-center w-14 h-16 rounded-2xl border transition-all ${
+              isSelected 
+                ? 'bg-orange-500 border-orange-400 text-slate-950 shadow-lg shadow-orange-500/20' 
+                : 'bg-slate-900/50 border-white/5 text-slate-500'
+            }`}
+          >
+            <span className={`text-[7px] font-black tracking-tighter ${isSelected ? 'text-slate-900' : 'text-slate-600'}`}>{dayName}</span>
+            <span className="text-sm font-black italic">{dayNum}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const SettingsView: React.FC<{ 
+  language: Language, 
+  setLanguage: (l: Language) => void, 
+  isVip: boolean, 
+  setIsVip: (v: boolean) => void, 
+  userEmail: string | null 
+}> = ({ language, setLanguage, isVip, setIsVip, userEmail }) => {
   const S = STRINGS[language];
   const [code, setCode] = useState('');
-  const [expiryDays, setExpiryDays] = useState<number | null>(null);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const activationDate = localStorage.getItem('btq_activation_date');
-    const activeCode = localStorage.getItem('btq_active_code');
-    if (activationDate && activeCode && activeCode !== ADMIN_CODE) {
-      const start = parseInt(activationDate, 10);
-      const diffDays = 30 - Math.floor((Date.now() - start) / (1000 * 60 * 60 * 24));
-      if (diffDays <= 0) {
-        localStorage.removeItem('isVip');
-        localStorage.removeItem('btq_active_code');
-        localStorage.removeItem('btq_activation_date');
-        setIsVip(false);
-        setExpiryDays(0);
-      } else {
-        setExpiryDays(diffDays);
-      }
-    } else if (activeCode === ADMIN_CODE) {
-      setExpiryDays(null);
-    }
-  }, [isVip, setIsVip]);
+  const handleLogout = async () => { await signOut(auth); };
 
   const checkCode = (val: string) => {
     const trimmed = val.trim().toUpperCase();
     setCode(trimmed);
-    if (trimmed === ADMIN_CODE) {
-      setIsVip(true);
-      localStorage.setItem('isVip', 'true');
-      localStorage.setItem('btq_active_code', trimmed);
-      localStorage.removeItem('btq_activation_date');
-      return;
-    }
-    if (VALID_USER_CODES.has(trimmed)) {
-      const globalActivationKey = `btq_global_act_${trimmed}`;
-      const firstActivation = localStorage.getItem(globalActivationKey);
-      if (firstActivation) {
-        const diffDays = Math.floor((Date.now() - parseInt(firstActivation, 10)) / (1000 * 60 * 60 * 24));
-        if (diffDays < 30) {
-          setIsVip(true);
-          localStorage.setItem('isVip', 'true');
-          localStorage.setItem('btq_active_code', trimmed);
-          localStorage.setItem('btq_activation_date', firstActivation);
-        } else {
-          alert("ERREUR : Ce code a expiré.");
-        }
-      } else {
-        const now = Date.now().toString();
-        setIsVip(true);
-        localStorage.setItem('isVip', 'true');
-        localStorage.setItem('btq_active_code', trimmed);
-        localStorage.setItem('btq_activation_date', now);
-        localStorage.setItem(globalActivationKey, now); 
-      }
+    if (!userEmail) return;
+    if (trimmed === ADMIN_CODE || VALID_USER_CODES.has(trimmed)) {
+      setIsVip(true); 
+      localStorage.setItem(`btq_isVip_${userEmail}`, 'true'); 
     }
   };
 
   return (
-    <div className="p-6 pb-32 space-y-10 animate-in slide-in-from-right duration-500 max-w-xl mx-auto">
-      <div className="bg-slate-900/80 p-8 rounded-[3rem] border border-white/5 space-y-6">
-        <h2 className="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em] px-3">{S.language}</h2>
-        <div className="flex gap-4">
+    <div className="p-6 pb-32 space-y-6 max-w-xl mx-auto">
+      <div className="bg-[#0b1121] p-6 rounded-[1.8rem] border border-white/5 space-y-4 shadow-xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-slate-900 rounded-full"><UserCircle size={28} className="text-slate-600" /></div>
+          <div>
+            <p className="text-[8px] font-black text-slate-600 uppercase">Utilisateur</p>
+            <p className="text-xs font-bold text-white">{userEmail}</p>
+          </div>
+        </div>
+        <h2 className="text-[8px] font-black uppercase text-slate-600 tracking-widest">{S.language}</h2>
+        <div className="flex gap-2">
           {['FR', 'EN'].map(l => (
-            <button key={l} onClick={() => setLanguage(l as Language)} className={`flex-1 py-5 rounded-[1.8rem] text-xs font-black border transition-all ${language === l ? 'bg-orange-600 border-orange-400 text-white shadow-xl' : 'bg-slate-950 border-white/5 text-slate-500'}`}>{l === 'FR' ? 'FRANÇAIS' : 'ENGLISH'}</button>
+            <button key={l} onClick={() => setLanguage(l as Language)} className={`flex-1 py-3 rounded-lg text-[9px] font-black border transition-all ${language === l ? 'bg-orange-600 border-orange-400 text-white' : 'bg-[#020617] border-white/5 text-slate-700'}`}>{l}</button>
           ))}
         </div>
       </div>
+
       {!isVip ? (
-        <div className="bg-slate-900/80 p-10 rounded-[3rem] border border-white/5 space-y-8 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-6 opacity-5"><Crown size={100} /></div>
-          <h2 className="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em] px-3">ACTIVER L'ACCÈS VIP</h2>
-          <div className="relative">
-            <Key className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-700" size={24} />
-            <input type="text" value={code} onChange={(e) => checkCode(e.target.value)} placeholder="Entrez votre code..." className="w-full bg-slate-950 border border-white/10 rounded-[1.8rem] py-6 pl-16 pr-6 text-center font-black text-2xl outline-none focus:border-orange-500/50 transition-all placeholder:text-slate-800 text-white uppercase" />
-          </div>
-          <button onClick={() => window.open(PAYMENT_LINK, '_blank')} className="w-full bg-orange-500 text-slate-950 font-black py-5 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all shadow-lg"><Crown size={20} /><span>OBTENIR MON CODE VIP (30J)</span></button>
+        <div className="bg-[#0b1121] p-8 rounded-[2rem] border border-white/5 space-y-6 shadow-2xl">
+          <h2 className="text-[8px] font-black uppercase text-slate-600 tracking-widest text-center">ACTIVER L'ACCÈS VIP</h2>
+          <input type="text" value={code} onChange={(e) => checkCode(e.target.value)} placeholder="Code d'activation..." className="w-full bg-[#020617] border border-white/10 rounded-xl py-4 text-center font-black text-lg outline-none text-white uppercase placeholder:text-slate-800" />
+          <button onClick={() => window.open(PAYMENT_LINK, '_blank')} className="w-full bg-orange-500 text-slate-950 font-black py-4 rounded-xl text-[11px] uppercase italic tracking-widest shadow-xl active:scale-95 transition-all">Acheter un accès (30j)</button>
         </div>
       ) : (
-        <div className="bg-orange-500/5 p-10 rounded-[3rem] border border-orange-500/20 space-y-6 shadow-inner text-center relative overflow-hidden">
-          <div className="bg-orange-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border border-orange-500/30"><CheckCircle2 size={40} className="text-orange-400" /></div>
-          <div><span className="text-2xl font-black text-white italic block mb-1 uppercase">ACCÈS ACTIF</span>{expiryDays !== null && (<div className="flex items-center justify-center gap-2 text-orange-400/80 text-xs font-black uppercase tracking-widest mt-2"><Clock size={14} /><span>IL RESTE {expiryDays} JOURS</span></div>)}<p className="text-[10px] text-slate-500 font-bold mt-4 uppercase">Code : {localStorage.getItem('btq_active_code')}</p></div>
+        <div className="bg-orange-500/10 p-8 rounded-[1.8rem] border border-orange-500/20 text-center">
+          <CheckCircle2 size={32} className="text-orange-400 mx-auto mb-2" />
+          <span className="text-lg font-black text-white italic block uppercase">ACCÈS VIP ACTIF</span>
         </div>
       )}
-      <div onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace('+', '')}`, '_blank')} className="bg-orange-500/10 p-8 rounded-[3rem] border border-orange-500/20 flex items-center justify-between cursor-pointer group hover:bg-orange-500/20 transition-all shadow-xl">
-        <div className="flex items-center gap-6"><div className="p-5 bg-orange-500/10 rounded-3xl group-hover:scale-110 transition-transform"><MessageCircle size={32} className="text-orange-400" /></div><div><h4 className="text-lg font-black text-white uppercase">{S.helpTitle}</h4><p className="text-[10px] text-orange-400/70 uppercase font-black tracking-widest italic">{S.helpDesc}</p></div></div><ArrowRight size={24} className="text-orange-400 group-hover:translate-x-2 transition-transform" />
+
+      <button onClick={handleLogout} className="w-full bg-rose-500/10 p-5 rounded-[1.5rem] border border-rose-500/20 flex items-center justify-center gap-3 group hover:bg-rose-500/20 transition-all">
+        <LogOut size={20} className="text-rose-500" />
+        <span className="text-xs font-black text-white uppercase italic">Déconnexion</span>
+      </button>
+    </div>
+  );
+};
+
+const VipView: React.FC<{ matches: FootballMatch[], loading: boolean, language: Language, isVip: boolean }> = ({ matches, loading, language, isVip }) => {
+  const navigate = useNavigate();
+  const ELITE_TEAMS = ['Real Madrid', 'Barcelona', 'Manchester City', 'Liverpool', 'PSG', 'Bayern Munich', 'Arsenal', 'Inter'];
+  const eliteMatches = matches.filter(m => ELITE_TEAMS.some(t => m.homeTeam.includes(t) || m.awayTeam.includes(t)));
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+      <Loader2 className="animate-spin text-orange-400" size={32} />
+      <span className="text-[8px] font-black text-slate-700 uppercase">Chargement Élite...</span>
+    </div>
+  );
+
+  return (
+    <div className="pb-32 px-5 max-w-2xl mx-auto">
+      <header className="py-8">
+        <div className="flex items-center gap-2 mb-1">
+           <Crown size={18} className="text-orange-500" />
+           <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white">ESPACE VIP</h2>
+        </div>
+        <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">ANALYSES TACTIQUES & SCORES EXACTS</p>
+      </header>
+
+      <div className="space-y-4">
+        {eliteMatches.map((match) => (
+          <MatchCard key={match.id} match={match} isVipUser={isVip} forceLock={!isVip} onClick={(m) => navigate(`/match/${m.id}`, { state: { match: m, forceLock: !isVip } })} />
+        ))}
+        {eliteMatches.length === 0 && <p className="text-center text-slate-500 uppercase text-[10px] py-10">Aucun match Élite aujourd'hui</p>}
       </div>
     </div>
   );
 };
 
-const App: React.FC = () => {
-  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('lang') as Language) || 'FR');
-  const [isVip, setIsVip] = useState<boolean>(() => localStorage.getItem('isVip') === 'true');
-  const [showSplash, setShowSplash] = useState(true);
+const SplashScreen: React.FC = () => (
+  <div className="fixed inset-0 z-[100] bg-[#020617] flex flex-col items-center justify-center">
+    <div className="bg-[#0b1121] p-6 rounded-[3rem] border border-white/5 shadow-2xl scale-125">
+      <BrainCircuit size={60} className="text-blue-400 animate-pulse" />
+    </div>
+    <div className="text-center mt-8 space-y-2">
+      <h1 className="text-4xl font-black italic tracking-tighter text-white">BETI<span className="text-orange-500">Q</span></h1>
+      <p className="text-[8px] font-black text-blue-500/50 uppercase tracking-[0.8em]">Neural Engine v4.0</p>
+    </div>
+  </div>
+);
 
-  useEffect(() => { localStorage.setItem('lang', language); }, [language]);
-  useEffect(() => { localStorage.setItem('isVip', isVip.toString()); }, [isVip]);
+const App: React.FC = () => {
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('lang') as Language) || 'FR');
+  const [isVip, setIsVip] = useState<boolean>(false);
+  const [matches, setMatches] = useState<FootballMatch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2500);
-    const activationDate = localStorage.getItem('btq_activation_date');
-    const activeCode = localStorage.getItem('btq_active_code');
-    if (activationDate && activeCode && activeCode !== ADMIN_CODE) {
-      const start = parseInt(activationDate, 10);
-      const diffMs = Date.now() - start;
-      if (diffMs >= 30 * 24 * 60 * 60 * 1000) {
-        localStorage.removeItem('isVip');
-        localStorage.removeItem('btq_active_code');
-        localStorage.removeItem('btq_activation_date');
-        setIsVip(false);
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u && u.email) {
+        setIsVip(localStorage.getItem(`btq_isVip_${u.email}`) === 'true');
       }
-    }
-    return () => clearTimeout(timer);
+      setAuthLoading(false);
+    });
+    return () => unsub();
   }, []);
+
+  const fetchMatches = async (date: string) => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const data = await fetchMatchesByDate(date);
+      setMatches(data.map(m => ({
+        id: m.match_id, league: m.league_name, homeTeam: m.match_hometeam_name,
+        awayTeam: m.match_awayteam_name, homeLogo: m.team_home_badge,
+        awayLogo: m.team_away_badge, time: m.match_time, status: m.match_status,
+        stats: { homeForm: [], awayForm: [], homeRank: 0, awayRank: 0, h2h: '' },
+        predictions: []
+      })));
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    if (user) fetchMatches(selectedDate);
+    const timer = setTimeout(() => setShowSplash(false), 2000);
+    return () => clearTimeout(timer);
+  }, [selectedDate, user]);
+
+  if (showSplash || authLoading) return <SplashScreen />;
+  if (!user) return <AuthView />;
 
   return (
     <HashRouter>
-      <div className="min-h-screen bg-[#020617] text-slate-100 selection:bg-orange-500/30">
-        {showSplash && <SplashScreen />}
+      <div className="min-h-screen bg-[#020617] text-slate-100">
         <Routes>
-          <Route path="/" element={<PredictionsView language={language} isVip={isVip} />} />
-          <Route path="/settings" element={<SettingsView language={language} setLanguage={setLanguage} isVip={isVip} setIsVip={setIsVip} />} />
+          <Route path="/" element={<PredictionsView matches={matches} loading={loading} language={language} isVip={isVip} selectedDate={selectedDate} onDateChange={setSelectedDate} onRefresh={() => fetchMatches(selectedDate)} />} />
+          <Route path="/settings" element={<SettingsView language={language} setLanguage={setLanguage} isVip={isVip} setIsVip={setIsVip} userEmail={user.email} />} />
           <Route path="/match/:id" element={<MatchDetailView language={language} isVip={isVip} />} />
-          <Route path="/vip" element={
-            <div className="p-10 text-center py-32 space-y-12 flex flex-col items-center">
-              <div className="relative"><div className="absolute inset-0 bg-orange-500 blur-[100px] opacity-20 animate-pulse"></div><Crown size={120} className="text-orange-500 animate-bounce relative z-10" /></div>
-              <div className="space-y-6"><h2 className="text-5xl font-black tracking-tighter italic uppercase">CERCLE ÉLITE VIP</h2><p className="text-base text-slate-400 leading-relaxed max-w-sm mx-auto font-medium">Analyse pure : Scores exacts IA, buteurs probables et sélections 100% Safe.</p></div>
-              <button onClick={() => window.open(PAYMENT_LINK, '_blank')} className="bg-orange-500 text-slate-950 px-16 py-6 rounded-[2.5rem] font-black shadow-2xl shadow-orange-500/30 active:scale-95 transition-all text-xl uppercase italic">S'abonner (30 jours)</button>
-              <button onClick={() => window.location.hash = '#/settings'} className="text-xs font-black text-slate-500 underline uppercase tracking-widest italic">Déjà un code ? Activation ici</button>
-            </div>
-          } />
+          <Route path="/vip" element={<VipView matches={matches} loading={loading} language={language} isVip={isVip} />} />
+          <Route path="*" element={<ReactRouterDOM.Navigate to="/" />} />
         </Routes>
-        <nav className="fixed bottom-3 left-8 right-8 bg-[#0b1121]/95 backdrop-blur-3xl border border-white/10 rounded-full py-1.5 px-6 flex items-center justify-around z-50 shadow-2xl transition-all">
-          <Link to="/" className="flex flex-col items-center gap-0.5 py-0.5 text-slate-500 hover:text-orange-400 transition-colors">
-            <LayoutGrid size={18} /><span className="text-[7px] font-black uppercase tracking-tighter">PRONOS</span>
+        <nav className="fixed bottom-4 left-8 right-8 bg-[#0b1121]/95 backdrop-blur-3xl border border-white/10 rounded-full py-2 px-6 flex items-center justify-around z-50 shadow-2xl">
+          <Link to="/" className="flex flex-col items-center gap-0.5 text-slate-600 hover:text-orange-400">
+            <LayoutGrid size={16} /><span className="text-[7px] font-black uppercase">PRONOS</span>
           </Link>
           <Link to="/vip" className="flex flex-col items-center group relative">
-            <div className="bg-orange-500 p-2.5 rounded-full -mt-8 border-[4px] border-[#020617] shadow-xl group-hover:scale-110 transition-transform">
-              <Crown size={18} className="text-slate-950" />
+            <div className="bg-orange-500 p-1.5 rounded-full -mt-7 border-[3px] border-[#020617] shadow-xl">
+              <Crown size={16} className="text-slate-950" />
             </div>
-            <span className="text-[7px] font-black uppercase tracking-tighter text-orange-500 mt-0.5 italic">VIP</span>
+            <span className="text-[7px] font-black text-orange-500 mt-1 uppercase">VIP</span>
           </Link>
-          <Link to="/settings" className="flex flex-col items-center gap-0.5 py-0.5 text-slate-500 hover:text-orange-400 transition-colors">
-            <Settings size={18} /><span className="text-[7px] font-black uppercase tracking-tighter">COMPTE</span>
+          <Link to="/settings" className="flex flex-col items-center gap-0.5 text-slate-600 hover:text-orange-400">
+            <Settings size={16} /><span className="text-[7px] font-black uppercase">COMPTE</span>
           </Link>
         </nav>
       </div>

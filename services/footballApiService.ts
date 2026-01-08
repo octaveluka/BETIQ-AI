@@ -21,21 +21,48 @@ export interface ApiMatch {
 }
 
 export async function fetchMatchesByDate(date: string): Promise<ApiMatch[]> {
-  const url = `${BASE_URL}?action=get_events&from=${date}&to=${date}&APIkey=${API_KEY}`;
+  // Construction robuste de l'URL
+  const params = new URLSearchParams({
+    action: 'get_events',
+    from: date,
+    to: date,
+    APIkey: API_KEY
+  });
+  
+  const url = `${BASE_URL}?${params.toString()}`;
   
   try {
     const response = await fetch(url);
+
+    if (!response.ok) {
+      console.warn(`FootballAPI Response not OK: ${response.status}`);
+      return [];
+    }
+
     const data = await response.json();
     
-    if (data.error) {
-      console.error("API Error:", data.error);
+    // Si l'API renvoie un objet d'erreur au lieu d'une liste
+    if (data.error || !Array.isArray(data)) {
+      console.warn("API Return Info:", data.error || "No data array");
       return [];
     }
     
-    const majorLeagues = ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Champions League', 'Europa League', 'Eredivisie', 'Primeira Liga'];
-    return Array.isArray(data) ? data.filter(m => majorLeagues.some(l => m.league_name.includes(l))).slice(0, 30) : [];
+    // Ligues prioritaires + Support pour les petites ligues demandées
+    const relevantLeagues = [
+      'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 
+      'Champions League', 'Europa League', 'Eredivisie', 'Primeira Liga',
+      'Championship', 'Segunda Division', 'Serie B', 'Ligue 2', 'Bundesliga 2',
+      'Jupiler Pro League', 'Super Lig', 'A-League', 'Super League'
+    ];
+
+    // On garde un maximum de 80 matchs pour ne pas surcharger l'IA
+    return data.filter(m => 
+      relevantLeagues.some(l => m.league_name.includes(l)) || 
+      ['England', 'Spain', 'France', 'Italy', 'Germany', 'Netherlands', 'Portugal'].includes(m.country_name)
+    ).slice(0, 80);
+
   } catch (error) {
-    console.error("Fetch Error:", error);
+    console.error("FootballAPI Critical Network Error:", error);
     return [];
   }
 }
@@ -44,6 +71,7 @@ export async function fetchStandings(leagueId: string) {
   const url = `${BASE_URL}?action=get_standings&league_id=${leagueId}&APIkey=${API_KEY}`;
   try {
     const response = await fetch(url);
+    if (!response.ok) return null;
     return await response.json();
   } catch (error) {
     console.error("Standings Error:", error);
