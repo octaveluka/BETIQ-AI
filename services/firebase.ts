@@ -1,5 +1,5 @@
-import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBFQctGewLcFaSHPWs_YpuxomuHXFEK-TQ",
@@ -11,11 +11,10 @@ const firebaseConfig = {
   measurementId: "G-K22TJ6FT6T"
 };
 
-// Initialisation de l'application
-const app = initializeApp(firebaseConfig);
+// Singleton pattern: check if app already exists
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// L'appel à getAuth(app) enregistre le composant auth dans l'instance app
+// L'appel immédiat à getAuth enregistre le service de manière synchrone
 export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
 
 export default app;
