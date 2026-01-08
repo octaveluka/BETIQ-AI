@@ -11,10 +11,10 @@ const firebaseConfig = {
   measurementId: "G-K22TJ6FT6T"
 };
 
-// Singleton pattern: check if app already exists
+// Initialisation unique et partage de l'instance
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// L'appel immédiat à getAuth enregistre le service de manière synchrone
+// L'appel à getAuth(app) enregistre le composant auth dans l'instance app
 export const auth = getAuth(app);
 
 export default app;
