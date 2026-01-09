@@ -78,20 +78,54 @@ const DateSelector: React.FC<{ selectedDate: string, onDateChange: (d: string) =
   </div>
 );
 
-const LeagueSelector: React.FC<{ selected: string, onSelect: (s: string) => void }> = ({ selected, onSelect }) => (
-  <div className="flex gap-2 overflow-x-auto no-scrollbar py-2">
-    {[
-      { id: 'all', name: 'Tous', icon: <Globe size={12}/> },
-      { id: 'top5', name: 'Top 5', icon: <TrendingUp size={12}/> },
-      { id: 'can', name: 'CAN / AFRIQUE', icon: <Trophy size={12}/> },
-      { id: 'others', name: 'Autres', icon: <LayoutGrid size={12}/> }
-    ].map(cat => (
-      <button key={cat.id} onClick={() => onSelect(cat.id)} className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase border transition-all ${selected === cat.id ? 'bg-[#c18c32] border-[#c18c32] text-slate-950 shadow-lg shadow-[#c18c32]/20' : 'bg-[#0b1121] border-white/5 text-slate-500'}`}>
-        {cat.icon}{cat.name}
-      </button>
-    ))}
-  </div>
-);
+const LeagueSelector: React.FC<{ selected: string, onSelect: (s: string) => void }> = ({ selected, onSelect }) => {
+  const LEAGUE_BUTTONS = [
+    { id: 'all', name: 'Tous', icon: <Globe size={12}/> },
+    // International
+    { id: 'ucl', name: 'UCL', icon: <Trophy size={12}/> },
+    { id: 'uel', name: 'UEL', icon: <Trophy size={12}/> },
+    { id: 'uecl', name: 'UECL', icon: <Trophy size={12}/> },
+    { id: 'libertadores', name: 'Libertadores', icon: <Trophy size={12}/> },
+    { id: 'cafcl', name: 'CAF CL', icon: <Trophy size={12}/> },
+    { id: 'concacafcl', name: 'CONCACAF CL', icon: <Trophy size={12}/> },
+    { id: 'fifacwc', name: 'Club World Cup', icon: <Globe size={12}/> },
+    // Big Five
+    { id: '152', name: 'Premier League', icon: <Target size={12}/> },
+    { id: '302', name: 'La Liga', icon: <Target size={12}/> },
+    { id: '207', name: 'Serie A', icon: <Target size={12}/> },
+    { id: '175', name: 'Bundesliga', icon: <Target size={12}/> },
+    { id: '168', name: 'Ligue 1', icon: <Target size={12}/> },
+    // Others
+    { id: 'brasileirao', name: 'Brasileirão', icon: <Target size={12}/> },
+    { id: 'ligamx', name: 'Liga MX', icon: <Target size={12}/> },
+    { id: 'mls', name: 'MLS', icon: <Target size={12}/> },
+    { id: 'primeira', name: 'Primeira Liga', icon: <Target size={12}/> },
+    { id: 'eredivisie', name: 'Eredivisie', icon: <Target size={12}/> },
+    // National Teams
+    { id: 'wc', name: 'World Cup', icon: <Trophy size={12}/> },
+    { id: 'euro', name: 'Euro', icon: <Trophy size={12}/> },
+    { id: 'copa', name: 'Copa América', icon: <Trophy size={12}/> },
+    { id: '28', name: 'CAN', icon: <Trophy size={12}/> },
+    { id: 'asiancup', name: 'Asian Cup', icon: <Trophy size={12}/> },
+    { id: 'goldcup', name: 'Gold Cup', icon: <Trophy size={12}/> },
+    { id: 'nationsleague', name: 'Nations League', icon: <Trophy size={12}/> },
+    { id: 'copadelrey', name: 'Coupe du Roi', icon: <Trophy size={12}/> },
+  ];
+
+  return (
+    <div className="flex gap-2 overflow-x-auto no-scrollbar py-2">
+      {LEAGUE_BUTTONS.map(cat => (
+        <button 
+          key={cat.id} 
+          onClick={() => onSelect(cat.id)} 
+          className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase border transition-all ${selected === cat.id ? 'bg-[#c18c32] border-[#c18c32] text-slate-950 shadow-lg' : 'bg-[#0b1121] border-white/5 text-slate-500'}`}
+        >
+          {cat.icon}{cat.name}
+        </button>
+      ))}
+    </div>
+  );
+};
 
 const AuthView: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -138,11 +172,7 @@ const PredictionsView: React.FC<any> = ({ matches, loading, language, isVip, sel
   const freeHome = useMemo(() => filtered.filter(m => !isPopularMatch(m)).slice(0, 3), [filtered]);
 
   const handleMatchClick = (m: FootballMatch, locked: boolean) => {
-    // Redirection directe vers réglages si verrouillé
-    if (locked && !isVip) {
-      navigate('/settings');
-      return;
-    }
+    if (locked && !isVip) { navigate('/settings'); return; }
     navigate(`/match/${m.id}`, { state: { match: m, forceLock: locked } });
   };
 
@@ -176,9 +206,15 @@ const VipZoneView: React.FC<any> = ({ matches, loading, language, isVip, selecte
 
   const filtered = useMemo(() => {
     let base = matches.filter(m => m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) || m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase()));
-    if (selectedLeagueType === 'top5') return base.filter(m => m.league_id && ['152', '302', '207', '175', '168'].includes(m.league_id));
-    if (selectedLeagueType === 'can') return base.filter(m => m.league_id === '28' || m.league.toLowerCase().includes('africa cup') || m.league.toLowerCase().includes('can') || m.country_name?.toLowerCase().includes('africa'));
-    if (selectedLeagueType === 'others') return base.filter(m => m.league_id && !['152', '302', '207', '175', '168'].includes(m.league_id) && m.league_id !== '28');
+    if (selectedLeagueType === 'all') return base;
+    if (!isNaN(Number(selectedLeagueType))) return base.filter(m => m.league_id === selectedLeagueType);
+
+    const keywordMap: Record<string, string[]> = {
+      ucl: ['champions league'], uel: ['europa league'], uecl: ['conference league'], libertadores: ['libertadores'], cafcl: ['caf champions'], concacafcl: ['concacaf champions'], fifacwc: ['club world cup'], ligamx: ['liga mx'], mls: ['major league soccer', 'mls'], primeira: ['primeira liga'], eredivisie: ['eredivisie'], wc: ['world cup'], euro: ['euro'], copa: ['copa america'], asiancup: ['asian cup'], goldcup: ['gold cup'], nationsleague: ['nations league'], copadelrey: ['copa del rey', 'coupe du roi', 'king\'s cup']
+    };
+    if (selectedLeagueType === 'brasileirao') return base.filter(m => m.country_name === 'Brazil');
+    const keywords = keywordMap[selectedLeagueType];
+    if (keywords) return base.filter(m => keywords.some(k => m.league.toLowerCase().includes(k)));
     return base;
   }, [matches, searchTerm, selectedLeagueType]);
 
@@ -186,10 +222,7 @@ const VipZoneView: React.FC<any> = ({ matches, loading, language, isVip, selecte
   const others = useMemo(() => filtered.filter(m => !winners3.some(t => t.id === m.id)), [filtered, winners3]);
 
   const handleMatchClick = (m: FootballMatch, locked: boolean) => {
-    if (locked && !isVip) {
-      navigate('/settings');
-      return;
-    }
+    if (locked && !isVip) { navigate('/settings'); return; }
     navigate(`/match/${m.id}`, { state: { match: m, forceLock: locked } });
   };
 
@@ -252,7 +285,6 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
                 </div>
               ))}
             </div>
-
             {data.vipInsight.detailedStats && (
               <div className="bg-[#0b1121] p-8 rounded-[3rem] border border-white/5 space-y-6">
                 <div className="flex items-center gap-3"><Activity size={18} className="text-blue-400" /><span className="text-[12px] font-black text-white uppercase italic">INDICATEURS DE JEU IA</span></div>
@@ -271,22 +303,8 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
                     </div>
                   ))}
                 </div>
-                {data.vipInsight.detailedStats.scorers && data.vipInsight.detailedStats.scorers.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-white/5">
-                    <div className="flex items-center gap-2.5 mb-4"><Zap size={14} className="text-orange-400" /><span className="text-[10px] font-bold text-slate-500 uppercase">PROBABILITÉS BUTEURS</span></div>
-                    <div className="flex flex-wrap gap-3">
-                      {data.vipInsight.detailedStats.scorers.map((s, i) => (
-                        <div key={i} className="bg-slate-900/50 px-4 py-2 rounded-xl border border-white/5 flex items-center gap-3">
-                          <span className="text-[11px] font-black text-white italic uppercase">{s.name}</span>
-                          <span className="text-[11px] font-black text-orange-500">{s.probability}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
-
             <div className="bg-[#0b1121]/40 p-8 rounded-[3rem] border border-white/5 space-y-6">
               <div className="flex items-center gap-3"><Target size={16} className="text-[#c18c32]" /><span className="text-[11px] font-black text-slate-400 uppercase italic">{S.vipInsight}</span></div>
               <div className="grid grid-cols-2 gap-4">{data.vipInsight.exactScores.map((s, idx) => (<div key={idx} className="bg-[#151c30] text-white p-7 rounded-[2rem] text-center text-4xl font-black italic shadow-inner">{s}</div>))}</div>
@@ -351,20 +369,7 @@ const App: React.FC = () => {
     setLoading(true); 
     try { 
       const data = await fetchMatchesByDate(date); 
-      setMatches(data.map(m => ({ 
-        id: m.match_id, 
-        league: m.league_name, 
-        league_id: m.league_id, 
-        homeTeam: m.match_hometeam_name, 
-        awayTeam: m.match_awayteam_name, 
-        homeLogo: m.team_home_badge, 
-        awayLogo: m.team_away_badge, 
-        time: m.match_time, 
-        status: m.match_status, 
-        country_name: m.country_name,
-        stats: { homeForm: [], awayForm: [], homeRank: 0, awayRank: 0, h2h: '' }, 
-        predictions: [] 
-      }))); 
+      setMatches(data.map(m => ({ id: m.match_id, league: m.league_name, league_id: m.league_id, homeTeam: m.match_hometeam_name, awayTeam: m.match_awayteam_name, homeLogo: m.team_home_badge, awayLogo: m.team_away_badge, time: m.match_time, status: m.match_status, country_name: m.country_name, stats: { homeForm: [], awayForm: [], homeRank: 0, awayRank: 0, h2h: '' }, predictions: [] }))); 
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
@@ -384,19 +389,14 @@ const App: React.FC = () => {
       </Routes>
 
       <nav className="fixed bottom-6 left-6 right-6 bg-[#0b1121]/95 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] py-3 flex items-center justify-around z-50 shadow-2xl">
-        {/* Navigation persistante : 3 menus pour Standard, 2 pour VIP */}
-        {!isVip && (
-          <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400 transition-colors"><LayoutGrid size={22} /><span className="text-[8px] font-black uppercase">DIRECT</span></Link>
-        )}
-        
+        <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400"><LayoutGrid size={22} /><span className="text-[8px] font-black uppercase">DIRECT</span></Link>
         <Link to="/vip" className="flex flex-col items-center group relative px-4">
           <div className={`${isVip ? 'bg-[#c18c32] shadow-[#c18c32]/20' : 'bg-orange-500 shadow-orange-500/20'} p-3.5 rounded-full -mt-12 border-[6px] border-[#020617] shadow-xl group-active:scale-90 transition-transform`}>
             {isVip ? <Crown size={26} className="text-slate-950" /> : <Lock size={24} className="text-slate-950" />}
           </div>
           <span className={`text-[9px] font-black mt-1.5 uppercase italic tracking-widest ${isVip ? 'text-[#c18c32]' : 'text-orange-500'}`}>VIP</span>
         </Link>
-        
-        <Link to="/settings" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400 transition-colors"><Settings size={22} /><span className="text-[8px] font-black uppercase">RÉGLAGES</span></Link>
+        <Link to="/settings" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400"><Settings size={22} /><span className="text-[8px] font-black uppercase">RÉGLAGES</span></Link>
       </nav>
     </div>
   );

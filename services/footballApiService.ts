@@ -37,28 +37,28 @@ export async function fetchMatchesByDate(date: string): Promise<ApiMatch[]> {
     const data = await response.json();
     if (data.error || !Array.isArray(data)) return [];
     
-    // Filtres étendus selon les exigences
-    const africanKeywords = ['Africa', 'CAN', 'Cup of Nations', 'CAF', 'Afrique', 'Coupe d\'Afrique'];
-    const eliteKeywords = [
+    // Filtres exhaustifs basés sur les mots-clés demandés
+    const Keywords = [
       'Champions League', 'Europa League', 'Conference League', 'Libertadores', 
-      'CONCACAF', 'FIFA Club World Cup', 'World Cup', 'Euro', 'Copa América', 
-      'Asian Cup', 'Gold Cup', 'Nations League', 'Copa del Rey', 'Coupe du roi', 'King\'s Cup'
+      'CAF Champions', 'CONCACAF', 'FIFA Club World Cup', 'Premier League',
+      'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Brasileirão', 'Liga MX',
+      'Major League Soccer', 'Primeira Liga', 'Eredivisie', 'World Cup', 'Euro',
+      'Copa América', 'CAN', 'Cup of Nations', 'Asian Cup', 'Gold Cup', 
+      'Nations League', 'Copa del Rey', 'Coupe du Roi', 'King\'s Cup'
     ];
-    const majorCountries = [
-      'England', 'Spain', 'Italy', 'Germany', 'France', 
-      'Brazil', 'Mexico', 'USA', 'Portugal', 'Netherlands'
-    ];
+
+    const africanKeywords = ['Africa', 'CAN', 'CAF', 'Afrique'];
 
     return data.filter(m => {
       const name = m.league_name.toLowerCase();
       const country = m.country_name.toLowerCase();
       
+      const isRequested = Keywords.some(key => name.includes(key.toLowerCase()));
       const isAfrican = africanKeywords.some(key => name.includes(key.toLowerCase()) || country.includes(key.toLowerCase()));
-      const isElite = eliteKeywords.some(key => name.includes(key.toLowerCase()));
-      const isMajorCountry = majorCountries.some(c => country === c.toLowerCase());
+      const isMajorCountry = ['England', 'Spain', 'Italy', 'Germany', 'France', 'Brazil', 'Mexico', 'USA', 'Portugal', 'Netherlands'].includes(m.country_name);
       
-      // On garde aussi spécifiquement l'ID 28 (souvent CAN)
-      return isAfrican || isElite || isMajorCountry || m.league_id === '28';
+      // ID 28 est souvent la CAN dans cette API
+      return isRequested || isAfrican || isMajorCountry || m.league_id === '28';
     });
 
   } catch (error) {
