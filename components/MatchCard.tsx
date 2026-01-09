@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FootballMatch } from '../types';
 import { Crown, Lock, Zap, ShieldCheck, Shield } from 'lucide-react';
@@ -11,6 +12,7 @@ interface Props {
 
 export const MatchCard: React.FC<Props> = ({ match, isVipUser, forceLock = false, onClick }) => {
   const isActuallyLocked = forceLock && !isVipUser;
+  const lang = localStorage.getItem('lang') || 'FR';
 
   return (
     <div 
@@ -69,12 +71,12 @@ export const MatchCard: React.FC<Props> = ({ match, isVipUser, forceLock = false
         {isActuallyLocked ? (
           <div className="flex items-center gap-2.5">
             <Lock size={13} strokeWidth={2.5} />
-            <span className="text-[10px] font-black uppercase tracking-widest italic">DÉBLOQUER VIP</span>
+            <span className="text-[10px] font-black uppercase tracking-widest italic">{lang === 'FR' ? 'DÉBLOQUER VIP' : 'UNLOCK VIP'}</span>
           </div>
         ) : (
           <div className="flex items-center gap-2.5">
             <Zap size={13} className="text-blue-400" strokeWidth={2.5} />
-            <span className="text-[10px] font-black uppercase tracking-widest italic">IA ANALYSE OK</span>
+            <span className="text-[10px] font-black uppercase tracking-widest italic">{lang === 'FR' ? 'IA ANALYSE OK' : 'AI ANALYSIS OK'}</span>
           </div>
         )}
       </div>

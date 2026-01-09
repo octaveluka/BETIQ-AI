@@ -10,6 +10,7 @@ interface Props {
 }
 
 export const VipSafeCard: React.FC<Props> = ({ match, isLocked, onClick }) => {
+  const lang = localStorage.getItem('lang') || 'FR';
   return (
     <div 
       onClick={onClick}
@@ -27,7 +28,7 @@ export const VipSafeCard: React.FC<Props> = ({ match, isLocked, onClick }) => {
         
         <div>
           <h4 className="text-white font-bold text-base tracking-tight">{match.homeTeam} - {match.awayTeam}</h4>
-          <p className="text-[#c18c32] text-[10px] font-black uppercase tracking-[0.15em] mt-0.5">CONFIANCE MAX</p>
+          <p className="text-[#c18c32] text-[10px] font-black uppercase tracking-[0.15em] mt-0.5">{lang === 'FR' ? 'CONFIANCE MAX' : 'MAX CONFIDENCE'}</p>
         </div>
       </div>
       

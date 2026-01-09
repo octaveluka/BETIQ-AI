@@ -13,7 +13,7 @@ import {
 import { 
   Crown, Lock, LayoutGrid, Settings, ChevronLeft, Search,
   Loader2, RefreshCw, Zap, BrainCircuit, Trophy, Target, 
-  Globe, LogOut, ShieldCheck, Mail, Languages
+  Globe, LogOut, ShieldCheck, Mail, Languages, ExternalLink
 } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
@@ -31,9 +31,73 @@ import { fetchMatchesByDate } from './services/footballApiService';
 
 const ADMIN_CODE = "20202020";
 const PAYMENT_LINK = "https://bsbxsvng.mychariow.shop/prd_g3zdgh/checkout";
-
-const VALID_CODES_ARRAY = ["BETIQ-138774", "BETIQ-26462098", "BETIQ-5", "BETIQ-24", "BETIQ-55"]; // ... codes pre-existants
+const VALID_CODES_ARRAY = ["BETIQ-138774", "BETIQ-26462098", "BETIQ-5", "BETIQ-24", "BETIQ-55"];
 const VALID_USER_CODES = new Set(VALID_CODES_ARRAY);
+
+const DICTIONARY = {
+  FR: {
+    freeTitle: "PRÉDICTIONS GRATUITES",
+    vipTitle: "ZONE ELITE VIP",
+    settingsTitle: "RÉGLAGES",
+    vipSubtitle: "Signal Haute Précision",
+    vipCardHeader: "LA CARTE GAGNANTE : LES 3 SÉLECTIONS 100% ACCURATE",
+    searchPlaceholder: "Chercher match, ligue...",
+    userConnected: "Utilisateur Connecté",
+    appLanguage: "Langue de l'application",
+    activationVip: "ACTIVATION VIP",
+    vipDescription: "Le VIP débloque les 3 sélections 100% gagnantes et les analyses tactiques des ligues élites (UCL, Premier League, CAN).",
+    buyCode: "ACHETER UN CODE",
+    verify: "VÉRIFIER",
+    logout: "Se déconnecter",
+    vipActive: "ABONNEMENT ELITE ACTIF",
+    loadingAi: "Génération du Signal IA...",
+    tacticalAnalysis: "Analyse Tactique",
+    advancedSignals: "Signaux Avancés",
+    probableScorers: "Buteurs Probables",
+    googleSources: "Sources Google Search (Grounding)",
+    iaUnlocked: "ANALYSE IA DÉBLOQUÉE",
+    noMatches: "Aucun match trouvé pour ce jour/ligue",
+    all: "Tous",
+    checkVip: "DÉBLOQUER VIP",
+    auth: "Authentification",
+    createAccount: "Créer un compte",
+    login: "Connexion",
+    register: "S'inscrire",
+    newUser: "Nouveau ? Créer un compte",
+    alreadyMember: "Déjà membre ? Se connecter"
+  },
+  EN: {
+    freeTitle: "FREE PREDICTIONS",
+    vipTitle: "ELITE VIP ZONE",
+    settingsTitle: "SETTINGS",
+    vipSubtitle: "High Precision Signal",
+    vipCardHeader: "THE WINNING CARD: THE 3 100% ACCURATE SELECTIONS",
+    searchPlaceholder: "Search match, league...",
+    userConnected: "Connected User",
+    appLanguage: "App Language",
+    activationVip: "VIP ACTIVATION",
+    vipDescription: "VIP unlocks 3 daily 100% winning selections and tactical analysis for elite leagues (UCL, Premier League, CAN).",
+    buyCode: "BUY A CODE",
+    verify: "VERIFY",
+    logout: "Log Out",
+    vipActive: "ELITE SUBSCRIPTION ACTIVE",
+    loadingAi: "Generating AI Signal...",
+    tacticalAnalysis: "Tactical Analysis",
+    advancedSignals: "Advanced Signals",
+    probableScorers: "Probable Scorers",
+    googleSources: "Google Search Sources (Grounding)",
+    iaUnlocked: "AI ANALYSIS UNLOCKED",
+    noMatches: "No matches found for this day/league",
+    all: "All",
+    checkVip: "UNLOCK VIP",
+    auth: "Authentication",
+    createAccount: "Create account",
+    login: "Login",
+    register: "Register",
+    newUser: "New here? Create an account",
+    alreadyMember: "Already a member? Login"
+  }
+};
 
 const ELITE_TEAMS = ['Real Madrid', 'Barcelona', 'Manchester City', 'Liverpool', 'Arsenal', 'Bayern Munich', 'PSG', 'Inter', 'AC Milan', 'Juventus', 'Dortmund', 'Chelsea', 'Atletico', 'Man Utd', 'Tottenham', 'Espagne', 'France', 'Brazil', 'Argentina'];
 
@@ -43,9 +107,10 @@ const isPopularMatch = (match: FootballMatch) => {
          eliteKeywords.some(k => match.league.toLowerCase().includes(k.toLowerCase()));
 };
 
-const LeagueSelector: React.FC<{ selected: string, onSelect: (s: string) => void }> = ({ selected, onSelect }) => {
+const LeagueSelector: React.FC<{ selected: string, onSelect: (s: string) => void, lang: Language }> = ({ selected, onSelect, lang }) => {
+  const t = DICTIONARY[lang];
   const LEAGUE_BUTTONS = [
-    { id: 'all', name: 'Tous', icon: <Globe size={12}/> },
+    { id: 'all', name: t.all, icon: <Globe size={12}/> },
     { id: '28', name: 'CAN', icon: <Trophy size={12}/> },
     { id: 'ucl', name: 'Champions League', icon: <Trophy size={12}/> },
     { id: '152', name: 'Premier League', icon: <Target size={12}/> },
@@ -69,29 +134,16 @@ const LeagueSelector: React.FC<{ selected: string, onSelect: (s: string) => void
   );
 };
 
-const filterMatches = (matches: FootballMatch[], leagueId: string) => {
-  if (leagueId === 'all') return matches;
-  const keywordMap: Record<string, string> = {
-    ucl: 'champions league', copadelrey: 'coupe du roi'
-  };
-  const keyword = keywordMap[leagueId];
-  if (keyword) return matches.filter(m => m.league.toLowerCase().includes(keyword));
-  if (!isNaN(Number(leagueId))) return matches.filter(m => m.league_id === leagueId);
-  return matches;
-};
-
-const FreePredictionsView: React.FC<any> = ({ matches, loading }) => {
+const FreePredictionsView: React.FC<any> = ({ matches, loading, lang }) => {
   const navigate = useNavigate();
-  // 3 matches de seconde zone pour le gratuit
-  const freeMatches = useMemo(() => {
-    return matches.filter(m => !isPopularMatch(m)).slice(0, 3);
-  }, [matches]);
+  const t = DICTIONARY[lang];
+  const freeMatches = useMemo(() => matches.filter(m => !isPopularMatch(m)).slice(0, 3), [matches]);
 
   return (
     <div className="pb-32 px-5 max-w-2xl mx-auto pt-10">
       <h2 className="text-2xl font-black uppercase italic mb-8 flex items-center gap-3">
         <LayoutGrid className="text-blue-400" />
-        PRÉDICTIONS <span className="text-blue-400">GRATUITES</span>
+        {t.freeTitle.split(' ')[0]} <span className="text-blue-400">{t.freeTitle.split(' ')[1]}</span>
       </h2>
       <div className="space-y-4">
         {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-400" /></div> : (
@@ -109,7 +161,7 @@ const FreePredictionsView: React.FC<any> = ({ matches, loading }) => {
                     <span className="text-[10px] font-black text-white uppercase truncate w-full">{m.awayTeam}</span>
                   </div>
                </div>
-               <div className="mt-4 bg-blue-500/10 py-2 rounded-xl text-center text-[9px] font-black text-blue-400 uppercase tracking-widest">ANALYSE IA DÉBLOQUÉE</div>
+               <div className="mt-4 bg-blue-500/10 py-2 rounded-xl text-center text-[9px] font-black text-blue-400 uppercase tracking-widest">{t.iaUnlocked}</div>
             </div>
           ))
         )}
@@ -118,27 +170,22 @@ const FreePredictionsView: React.FC<any> = ({ matches, loading }) => {
   );
 };
 
-const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onDateChange }) => {
+const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onDateChange, lang }) => {
   const navigate = useNavigate();
+  const t = DICTIONARY[lang];
   const [selectedLeague, setSelectedLeague] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // 3 Sélections 100% Gagnantes du Jour
-  const dailySelections = useMemo(() => {
-    return matches.filter(isPopularMatch).slice(0, 3);
-  }, [matches]);
+  const dailySelections = useMemo(() => matches.filter(isPopularMatch).slice(0, 3), [matches]);
 
   const allFilteredMatches = useMemo(() => {
-    let list = filterMatches(matches, selectedLeague);
-    if (searchTerm) {
-      list = list.filter(m => m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) || m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase()));
-    }
-    // Tri par popularité (Real Madrid, Barca, etc. en haut)
-    return [...list].sort((a, b) => {
-      const aPop = isPopularMatch(a) ? 1 : 0;
-      const bPop = isPopularMatch(b) ? 1 : 0;
-      return bPop - aPop;
+    const list = matches.filter(m => {
+      const matchSearch = m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) || m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase());
+      if (selectedLeague === 'all') return matchSearch;
+      if (!isNaN(Number(selectedLeague))) return m.league_id === selectedLeague && matchSearch;
+      return m.league.toLowerCase().includes(selectedLeague.toLowerCase()) && matchSearch;
     });
+    return [...list].sort((a, b) => (isPopularMatch(b) ? 1 : 0) - (isPopularMatch(a) ? 1 : 0));
   }, [matches, selectedLeague, searchTerm]);
 
   return (
@@ -146,8 +193,8 @@ const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onD
       <header className="flex items-center gap-3 mb-8">
         <Crown size={32} className="text-[#c18c32]" />
         <div>
-          <h2 className="text-2xl font-black uppercase italic text-white">ZONE <span className="text-[#c18c32]">ELITE VIP</span></h2>
-          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Signal Haute Précision</p>
+          <h2 className="text-2xl font-black uppercase italic text-white">{t.vipTitle.split(' ')[0]} <span className="text-[#c18c32]">{t.vipTitle.split(' ').slice(1).join(' ')}</span></h2>
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">{t.vipSubtitle}</p>
         </div>
       </header>
 
@@ -156,7 +203,7 @@ const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onD
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" />
           <input 
             type="text" 
-            placeholder="Chercher match, ligue..." 
+            placeholder={t.searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-[#0b1121] border border-white/5 rounded-2xl py-4 pl-12 pr-6 text-xs text-white outline-none" 
@@ -169,7 +216,7 @@ const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onD
             const iso = d.toISOString().split('T')[0];
             return (
               <button key={iso} onClick={() => onDateChange(iso)} className={`flex-shrink-0 min-w-[3.5rem] py-3 rounded-2xl border flex flex-col items-center gap-0.5 transition-all ${iso === selectedDate ? 'bg-[#c18c32] border-[#c18c32] text-slate-950' : 'bg-[#0b1121] border-white/5 text-slate-500'}`}>
-                <span className="text-[7px] font-black uppercase">{d.toLocaleDateString('fr-FR', { weekday: 'short' })}</span>
+                <span className="text-[7px] font-black uppercase">{d.toLocaleDateString(lang === 'FR' ? 'fr-FR' : 'en-US', { weekday: 'short' })}</span>
                 <span className="text-xs font-black">{d.getDate()}</span>
               </button>
             );
@@ -178,7 +225,7 @@ const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onD
 
         <section className="space-y-4">
           <div className="bg-[#c18c32]/10 p-4 rounded-2xl border-l-4 border-[#c18c32]">
-            <h3 className="text-[10px] font-black text-white uppercase italic">LA CARTE GAGNANTE : LES 3 SÉLECTIONS 100% ACCURATE</h3>
+            <h3 className="text-[10px] font-black text-white uppercase italic">{t.vipCardHeader}</h3>
           </div>
           <div className="space-y-3">
             {loading ? <div className="flex justify-center"><Loader2 className="animate-spin text-orange-500" /></div> : dailySelections.map(m => (
@@ -190,7 +237,7 @@ const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onD
           </div>
         </section>
 
-        <LeagueSelector selected={selectedLeague} onSelect={setSelectedLeague} />
+        <LeagueSelector selected={selectedLeague} onSelect={setSelectedLeague} lang={lang} />
       </div>
 
       <div className="space-y-4">
@@ -200,7 +247,7 @@ const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onD
               key={m.id} 
               match={m} 
               isVipUser={isVip} 
-              forceLock={true} // Tous les matchs en zone VIP sont bloqués pour Standard
+              forceLock={true} 
               onClick={(match) => {
                 if (!isVip) navigate('/settings');
                 else navigate(`/match/${match.id}`, { state: { match } });
@@ -208,6 +255,7 @@ const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onD
             />
           ))
         )}
+        {!loading && allFilteredMatches.length === 0 && <p className="text-center text-slate-500 text-[10px] font-black uppercase py-10">{t.noMatches}</p>}
       </div>
     </div>
   );
@@ -217,37 +265,38 @@ const SettingsView: React.FC<any> = ({ isVip, setIsVip, userEmail, language, set
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState('');
   const navigate = useNavigate();
+  const t = DICTIONARY[language];
 
   const activateVip = () => {
     if (VALID_USER_CODES.has(code) || code === ADMIN_CODE) {
       setIsVip(true);
       localStorage.setItem(`btq_vip_status_${userEmail}`, 'true');
       localStorage.setItem(`btq_vip_start_${userEmail}`, Date.now().toString());
-      setMsg("VIP ACTIVÉ ! Profitez des 3 sélections 100% gagnantes.");
+      setMsg(language === 'FR' ? "VIP ACTIVÉ !" : "VIP ACTIVATED!");
       setTimeout(() => navigate('/vip'), 1500);
-    } else { setMsg("Code d'accès invalide."); }
+    } else { setMsg(language === 'FR' ? "Code invalide." : "Invalid code."); }
   };
 
   return (
     <div className="pb-32 px-5 max-w-2xl mx-auto pt-10">
-      <h2 className="text-2xl font-black uppercase italic mb-8">Réglages</h2>
+      <h2 className="text-2xl font-black uppercase italic mb-8">{t.settingsTitle}</h2>
       <div className="space-y-6">
         <div className="bg-[#0b1121] p-6 rounded-[2rem] border border-white/5 space-y-4">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-blue-500/10 rounded-xl text-blue-400"><Mail size={20}/></div>
             <div>
-              <p className="text-[9px] font-black text-slate-500 uppercase">Utilisateur Connecté</p>
+              <p className="text-[9px] font-black text-slate-500 uppercase">{t.userConnected}</p>
               <p className="text-xs font-bold text-white">{userEmail}</p>
             </div>
           </div>
           
           <div className="pt-4 border-t border-white/5">
-            <p className="text-[9px] font-black text-slate-500 uppercase mb-3 flex items-center gap-2"><Languages size={12}/> Langue de l'application</p>
+            <p className="text-[9px] font-black text-slate-500 uppercase mb-3 flex items-center gap-2"><Languages size={12}/> {t.appLanguage}</p>
             <div className="flex gap-2">
               {['FR', 'EN'].map(l => (
                 <button 
                   key={l} 
-                  onClick={() => { setLanguage(l); localStorage.setItem('lang', l); }}
+                  onClick={() => { setLanguage(l as Language); localStorage.setItem('lang', l); }}
                   className={`flex-1 py-3 rounded-xl font-black text-xs transition-all ${language === l ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-900 text-slate-500'}`}
                 >
                   {l === 'FR' ? 'FRANÇAIS' : 'ENGLISH'}
@@ -258,21 +307,21 @@ const SettingsView: React.FC<any> = ({ isVip, setIsVip, userEmail, language, set
         </div>
 
         <div className="bg-[#0b1121] p-6 rounded-[2rem] border border-[#c18c32]/20">
-          <h3 className="text-[10px] font-black text-[#c18c32] uppercase mb-4 flex items-center gap-2"><Crown size={12}/> ACTIVATION VIP</h3>
+          <h3 className="text-[10px] font-black text-[#c18c32] uppercase mb-4 flex items-center gap-2"><Crown size={12}/> {t.activationVip}</h3>
           {!isVip ? (
             <div className="space-y-4">
-              <p className="text-[10px] text-slate-400 leading-relaxed uppercase font-bold">Le VIP débloque les 3 sélections 100% gagnantes et les analyses tactiques des ligues élites (UCL, Premier League, CAN).</p>
-              <a href={PAYMENT_LINK} target="_blank" rel="noreferrer" className="block text-center w-full bg-[#c18c32] text-slate-950 font-black py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg shadow-[#c18c32]/20">ACHETER UN CODE</a>
+              <p className="text-[10px] text-slate-400 leading-relaxed uppercase font-bold">{t.vipDescription}</p>
+              <a href={PAYMENT_LINK} target="_blank" rel="noreferrer" className="block text-center w-full bg-[#c18c32] text-slate-950 font-black py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg shadow-[#c18c32]/20">{t.buyCode}</a>
               <div className="flex gap-2">
-                <input type="text" placeholder="Entrer code" value={code} onChange={e => setCode(e.target.value)} className="flex-1 bg-slate-950 border border-white/5 rounded-xl px-4 text-xs outline-none text-white font-bold" />
-                <button onClick={activateVip} className="bg-white text-slate-950 px-6 py-4 rounded-xl font-black text-xs uppercase">VÉRIFIER</button>
+                <input type="text" placeholder="Code" value={code} onChange={e => setCode(e.target.value)} className="flex-1 bg-slate-950 border border-white/5 rounded-xl px-4 text-xs outline-none text-white font-bold" />
+                <button onClick={activateVip} className="bg-white text-slate-950 px-6 py-4 rounded-xl font-black text-xs uppercase">{t.verify}</button>
               </div>
               {msg && <p className="text-[10px] font-bold text-center text-[#c18c32] uppercase animate-pulse">{msg}</p>}
             </div>
-          ) : <div className="flex items-center gap-2 text-emerald-500 font-black uppercase text-xs italic bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/20"><ShieldCheck size={16}/> ABONNEMENT ELITE ACTIF</div>}
+          ) : <div className="flex items-center gap-2 text-emerald-500 font-black uppercase text-xs italic bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/20"><ShieldCheck size={16}/> {t.vipActive}</div>}
         </div>
         
-        <button onClick={() => signOut(auth)} className="w-full flex items-center justify-center gap-2 text-rose-500 font-black uppercase text-xs p-6 bg-rose-500/5 rounded-[2rem] border border-rose-500/20 transition-all active:scale-95"><LogOut size={16}/> Se déconnecter</button>
+        <button onClick={() => signOut(auth)} className="w-full flex items-center justify-center gap-2 text-rose-500 font-black uppercase text-xs p-6 bg-rose-500/5 rounded-[2rem] border border-rose-500/20 transition-all active:scale-95"><LogOut size={16}/> {t.logout}</button>
       </div>
     </div>
   );
@@ -284,6 +333,7 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
   const match = state?.match as FootballMatch;
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const t = DICTIONARY[language];
 
   useEffect(() => {
     if (!match) { navigate('/'); return; }
@@ -317,7 +367,7 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
         {loading ? (
           <div className="flex flex-col items-center gap-4 py-10">
             <Loader2 className="animate-spin text-orange-500" size={32} />
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Génération du Signal IA...</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{t.loadingAi}</p>
           </div>
         ) : analysis && (
           <div className="space-y-6">
@@ -337,13 +387,13 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
             </div>
             
             <div className="bg-blue-500/5 p-6 rounded-2xl border border-blue-500/20">
-              <h4 className="text-[10px] font-black text-blue-400 uppercase mb-3 flex items-center gap-2"><Target size={14}/> Analyse Tactique</h4>
+              <h4 className="text-[10px] font-black text-blue-400 uppercase mb-3 flex items-center gap-2"><Target size={14}/> {t.tacticalAnalysis}</h4>
               <p className="text-xs leading-relaxed text-slate-300 italic">{analysis.analysis}</p>
             </div>
 
             {analysis.vipInsight.detailedStats && (
               <div className="bg-slate-900/40 p-6 rounded-2xl border border-white/5 space-y-4">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase mb-2">Signaux Avancés</h4>
+                <h4 className="text-[10px] font-black text-slate-400 uppercase mb-2">{t.advancedSignals}</h4>
                 <div className="grid grid-cols-2 gap-4 text-[10px] font-bold">
                   <div className="flex justify-between border-b border-white/5 pb-2"><span>Corners</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.corners}</span></div>
                   <div className="flex justify-between border-b border-white/5 pb-2"><span>Cartons</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.yellowCards}</span></div>
@@ -351,12 +401,26 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
                   <div className="flex justify-between border-b border-white/5 pb-2"><span>Cadrés</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.shotsOnTarget}</span></div>
                 </div>
                 <div className="mt-4">
-                  <p className="text-[9px] font-black text-slate-500 uppercase mb-2">Buteurs Probables</p>
+                  <p className="text-[9px] font-black text-slate-500 uppercase mb-2">{t.probableScorers}</p>
                   {analysis.vipInsight.detailedStats.scorers.map((s, idx) => (
                     <div key={idx} className="flex justify-between items-center bg-slate-950/40 p-2 rounded-lg mb-1">
                       <span className="text-xs text-white font-bold">{s.name}</span>
                       <span className="text-xs text-blue-400 font-black">{s.probability}%</span>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {analysis.sources && analysis.sources.length > 0 && (
+              <div className="bg-orange-500/5 p-6 rounded-2xl border border-orange-500/20">
+                <h4 className="text-[10px] font-black text-orange-500 uppercase mb-3 flex items-center gap-2"><ExternalLink size={14}/> {t.googleSources}</h4>
+                <div className="space-y-2">
+                  {analysis.sources.map((src, i) => (
+                    <a key={i} href={src.uri} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-slate-950/40 rounded-xl hover:bg-slate-950 transition-all">
+                      <span className="text-[10px] text-slate-300 truncate w-3/4">{src.title}</span>
+                      <ExternalLink size={12} className="text-orange-400" />
+                    </a>
                   ))}
                 </div>
               </div>
@@ -368,11 +432,12 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
   );
 };
 
-const AuthView: React.FC = () => {
+const AuthView: React.FC<{ lang: Language }> = ({ lang }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
+  const t = DICTIONARY[lang];
 
   const handleAuth = async () => {
     try {
@@ -387,14 +452,14 @@ const AuthView: React.FC = () => {
         <div className="text-center">
           <BrainCircuit size={48} className="text-blue-400 mx-auto mb-4" />
           <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter">BETI<span className="text-orange-500">Q</span></h2>
-          <p className="text-slate-500 text-[10px] font-black uppercase mt-2">{isLogin ? 'Authentification' : 'Créer un compte'}</p>
+          <p className="text-slate-500 text-[10px] font-black uppercase mt-2">{isLogin ? t.auth : t.createAccount}</p>
         </div>
         <div className="space-y-4">
           <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-slate-950 border border-white/5 rounded-2xl p-4 text-sm outline-none text-white" />
-          <input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-950 border border-white/5 rounded-2xl p-4 text-sm outline-none text-white" />
+          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-950 border border-white/5 rounded-2xl p-4 text-sm outline-none text-white" />
           {error && <p className="text-rose-500 text-[10px] font-bold uppercase text-center">{error}</p>}
-          <button onClick={handleAuth} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest text-xs shadow-lg shadow-blue-500/20">{isLogin ? 'Connexion' : "S'inscrire"}</button>
-          <button onClick={() => setIsLogin(!isLogin)} className="w-full text-slate-500 text-[10px] font-black uppercase tracking-widest py-2 hover:text-white transition-colors">{isLogin ? "Nouveau ? Créer un compte" : "Déjà membre ? Se connecter"}</button>
+          <button onClick={handleAuth} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest text-xs shadow-lg shadow-blue-500/20">{isLogin ? t.login : t.register}</button>
+          <button onClick={() => setIsLogin(!isLogin)} className="w-full text-slate-500 text-[10px] font-black uppercase tracking-widest py-2 hover:text-white transition-colors">{isLogin ? t.newUser : t.alreadyMember}</button>
         </div>
       </div>
     </div>
@@ -409,6 +474,7 @@ const App: React.FC = () => {
   const [matches, setMatches] = useState<FootballMatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const t = DICTIONARY[language];
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -437,13 +503,13 @@ const App: React.FC = () => {
   useEffect(() => { if (user) fetchMatchesData(selectedDate); }, [selectedDate, user]);
 
   if (authLoading) return <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-8"><BrainCircuit size={64} className="text-blue-400 animate-pulse" /></div>;
-  if (!user) return <AuthView />;
+  if (!user) return <AuthView lang={language} />;
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 font-sans">
       <Routes>
-        <Route path="/" element={isVip ? <Navigate to="/vip" /> : <FreePredictionsView matches={matches} loading={loading} />} />
-        <Route path="/vip" element={<VipZoneView matches={matches} loading={loading} isVip={isVip} selectedDate={selectedDate} onDateChange={setSelectedDate} />} />
+        <Route path="/" element={isVip ? <Navigate to="/vip" /> : <FreePredictionsView matches={matches} loading={loading} lang={language} />} />
+        <Route path="/vip" element={<VipZoneView matches={matches} loading={loading} isVip={isVip} selectedDate={selectedDate} onDateChange={setSelectedDate} lang={language} />} />
         <Route path="/settings" element={<SettingsView isVip={isVip} setIsVip={setIsVip} userEmail={user.email} language={language} setLanguage={setLanguage} />} />
         <Route path="/match/:id" element={<MatchDetailView language={language} />} />
         <Route path="*" element={<Navigate to={isVip ? "/vip" : "/"} />} />
@@ -452,7 +518,7 @@ const App: React.FC = () => {
       <nav className="fixed bottom-6 left-6 right-6 bg-[#0b1121]/95 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] py-3 flex items-center justify-around z-50 shadow-2xl">
         {!isVip && (
           <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400 transition-colors">
-            <LayoutGrid size={22} /><span className="text-[7px] font-black uppercase">GRATUIT</span>
+            <LayoutGrid size={22} /><span className="text-[7px] font-black uppercase">{t.all === 'Tous' ? 'GRATUIT' : 'FREE'}</span>
           </Link>
         )}
         <Link to="/vip" className="flex flex-col items-center group relative px-4">
@@ -462,7 +528,7 @@ const App: React.FC = () => {
           <span className={`text-[8px] font-black mt-1.5 uppercase italic tracking-widest ${isVip ? 'text-[#c18c32]' : 'text-orange-500'}`}>VIP</span>
         </Link>
         <Link to="/settings" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400 transition-colors">
-          <Settings size={22} /><span className="text-[7px] font-black uppercase">RÉGLAGES</span>
+          <Settings size={22} /><span className="text-[7px] font-black uppercase">{language === 'FR' ? 'RÉGLAGES' : 'SETTINGS'}</span>
         </Link>
       </nav>
     </div>
