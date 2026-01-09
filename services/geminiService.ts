@@ -1,4 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
+
+import { GoogleGenAI } from "@google/genai";
 import { FootballMatch, Confidence, BetType, Prediction, VipInsight } from "../types";
 
 export interface AnalysisResult {
@@ -12,41 +13,40 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
-    RÔLE : Expert Analyste de Données Football (Style Signal IA).
+    RÔLE : Expert Analyste Sportif et Data Scientist Football.
     MATCH : ${match.homeTeam} vs ${match.awayTeam} (${match.league}).
-    LANGUE : ${language === 'FR' ? 'Français' : 'English'}.
+    LANGUE : Français.
 
-    TACHE : Génère une analyse fondamentale et des probabilités précises.
-    IMPORTANT : Tu DOIS inclure ces statistiques détaillées avec leurs pourcentages :
-    - Corners
-    - Cartons Jaunes
+    OBJECTIF : Fournir un signal de pari haute précision basé sur la tactique et les data.
+    IMPORTANT : Tu DOIS obligatoirement générer des valeurs numériques réalistes pour :
+    - Corners (format min-max)
+    - Cartons Jaunes (format min-max)
     - Hors-jeu
     - Fautes
     - Tirs totaux
     - Tirs cadrés
-    - Buteurs probables
+    - Buteurs probables avec % de probabilité
 
-    FORMAT : Répondre UNIQUEMENT avec un JSON valide. Pas de texte explicatif autour.
-
+    FORMAT JSON STRICT UNIQUEMENT :
     {
       "predictions": [
-        {"type": "1X2", "recommendation": "Nom de l'équipe ou Nul", "probability": 75, "confidence": "HIGH", "odds": 1.5},
-        {"type": "O/U 2.5", "recommendation": "Over 2.5", "probability": 70, "confidence": "HIGH", "odds": 1.8},
-        {"type": "BTTS", "recommendation": "Yes", "probability": 62, "confidence": "MEDIUM", "odds": 1.9}
+        {"type": "1X2", "recommendation": "Equipe Gagnante", "probability": 80, "confidence": "HIGH", "odds": 1.6},
+        {"type": "OVER/UNDER 2.5", "recommendation": "Over 2.5", "probability": 75, "confidence": "HIGH", "odds": 1.8},
+        {"type": "BTTS", "recommendation": "Oui", "probability": 65, "confidence": "MEDIUM", "odds": 1.9}
       ],
-      "analysis": "Ton analyse fondamentale détaillée ici (tactique, forme, enjeux)...",
+      "analysis": "Analyse tactique approfondie de 3-4 phrases sur la forme et les enjeux du match.",
       "vipInsight": {
-        "exactScores": ["2-1", "1-0"],
-        "strategy": {"safe": "Mise sûre", "value": "Value bet", "aggressive": "Prise de risque"},
-        "keyFact": "Le fait majeur du match",
+        "exactScores": ["2-1", "1-0", "2-0"],
+        "strategy": {"safe": "Signal Safe", "value": "Value Bet", "aggressive": "Signal Risqué"},
+        "keyFact": "L'élément déterminant du match.",
         "detailedStats": {
-          "corners": "9-11 (Probabilité 78%)",
-          "yellowCards": "3-5 (Probabilité 65%)",
-          "offsides": "2-4 (Probabilité 60%)",
-          "fouls": "22-25 (Probabilité 72%)",
-          "shots": "24-28 (Probabilité 80%)",
-          "shotsOnTarget": "8-10 (Probabilité 75%)",
-          "scorers": [{"name": "Joueur clé", "probability": 68}]
+          "corners": "8-10 (Probabilité 85%)",
+          "yellowCards": "3-5 (Probabilité 70%)",
+          "offsides": "2-4 (Probabilité 65%)",
+          "fouls": "20-25 (Probabilité 80%)",
+          "shots": "22-26 (Probabilité 88%)",
+          "shotsOnTarget": "7-9 (Probabilité 75%)",
+          "scorers": [{"name": "Nom du joueur", "probability": 72}]
         }
       }
     }
@@ -81,14 +81,12 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
     console.error("Gemini Error:", error);
     return {
       predictions: [
-        { type: "1X2", recommendation: "N/A", probability: 50, confidence: Confidence.MEDIUM, odds: 0 },
-        { type: "O/U 2.5", recommendation: "N/A", probability: 50, confidence: Confidence.MEDIUM, odds: 0 },
-        { type: "BTTS", recommendation: "N/A", probability: 50, confidence: Confidence.MEDIUM, odds: 0 }
+        { type: "1X2", recommendation: "Signal Indisponible", probability: 50, confidence: Confidence.MEDIUM, odds: 0 }
       ],
-      analysis: "L'IA n'a pas pu traiter la demande. Vérifiez votre connexion.",
+      analysis: "L'IA n'a pas pu traiter la demande de signal.",
       vipInsight: { 
         exactScores: ["?-?"], 
-        keyFact: "Erreur",
+        keyFact: "Erreur de connexion",
         strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" }
       },
       sources: []
