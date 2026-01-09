@@ -11,10 +11,12 @@ const firebaseConfig = {
   measurementId: "G-K22TJ6FT6T"
 };
 
-// Initialisation unique et partage de l'instance
+// Initialisation unique de l'application
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// L'appel à getAuth(app) enregistre le composant auth dans l'instance app
+// Initialisation de l'authentification liée à l'instance 'app' confirmée
+// Cela résout l'erreur "Component auth has not been registered yet"
 export const auth = getAuth(app);
 
+export { app };
 export default app;
