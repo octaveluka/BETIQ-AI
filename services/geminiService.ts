@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { FootballMatch, Confidence, BetType, Prediction, VipInsight } from "../types";
 
@@ -9,123 +8,68 @@ export interface AnalysisResult {
   sources: { title: string; uri: string }[];
 }
 
+const BIG_LEAGUES_IDS = ['152', '302', '207', '175', '168', '3', '28'];
+
 export async function generatePredictionsAndAnalysis(match: FootballMatch, language: string): Promise<AnalysisResult> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const isBigLeague = match.league_id && BIG_LEAGUES_IDS.includes(match.league_id);
   
   const prompt = `
-    RÔLE : Analyste Expert Pronostics.
+    RÔLE : Expert Analyste Data Football (Style Professionnel).
     MATCH : ${match.homeTeam} vs ${match.awayTeam} (${match.league}).
     LANGUE : ${language}.
 
-    TACHE : Génère une analyse de probabilité en JSON.
+    TACHE : Génère une analyse fondamentale et des probabilités en JSON.
     RÈGLES : 
-    - predictions : Liste 1X2, O/U 2.5, et BTTS.
-    - vipInsight : 2 scores exacts max, et une stratégie de mise (safe, value, aggressive).
-    
-    JSON attendu :
+    1. Predictions : Toujours inclure 1X2, O/U 2.5, et BTTS.
+    2. Statistiques détaillées (OBLIGATOIRE si match majeur) : Corners, Cartons jaunes, Hors-jeu, Fautes, Tirs totaux, Tirs cadrés.
+    3. Buteurs : Liste les joueurs avec probabilité.
+    4. Format : Répondre UNIQUEMENT avec le JSON, pas de texte autour.
+
+    STRUCTURE JSON ATTENDUE :
     {
       "predictions": [
-        {"type": "1X2", "recommendation": "Victoire...", "probability": 75, "confidence": "HIGH", "odds": 1.5},
+        {"type": "1X2", "recommendation": "Manchester City", "probability": 75, "confidence": "HIGH", "odds": 1.5},
         {"type": "O/U 2.5", "recommendation": "Over 2.5", "probability": 70, "confidence": "HIGH", "odds": 1.8},
         {"type": "BTTS", "recommendation": "Yes", "probability": 62, "confidence": "MEDIUM", "odds": 1.9}
       ],
-      "analysis": "Texte court d'analyse...",
+      "analysis": "Analyse tactique fondamentale...",
       "vipInsight": {
-        "exactScores": ["3-1", "2-1"],
-        "strategy": {
-          "safe": "Mise modérée sur...",
-          "value": "Cote intéressante sur...",
-          "aggressive": "Option risquée..."
-        },
-        "keyFact": "Facteur clé",
+        "exactScores": ["2-1", "3-1"],
+        "strategy": {"safe": "Mise 1", "value": "Mise 2", "aggressive": "Mise 3"},
+        "keyFact": "Détail clé du match",
         "detailedStats": {
-          "corners": "8-10",
-          "yellowCards": "3-4",
-          "shotsOnTarget": "5-6",
-          "fouls": "20+",
-          "scorers": [{"name": "Buteur", "probability": 45}]
+          "corners": "Over 9.5 (Probabilité 78%)",
+          "yellowCards": "Under 4.5 (Probabilité 65%)",
+          "offsides": "Over 3.5 (Probabilité 60%)",
+          "fouls": "22-25 total (Probabilité 72%)",
+          "shots": "28+ au total (Probabilité 80%)",
+          "shotsOnTarget": "10+ au total (Probabilité 75%)",
+          "scorers": [{"name": "Erling Haaland", "probability": 68}]
         }
       }
     }
   `;
 
   try {
-    // Calling Gemini with both model and prompt in a single call as per guidelines
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        // Using responseSchema for better structure validation
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            predictions: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  type: { type: Type.STRING },
-                  recommendation: { type: Type.STRING },
-                  probability: { type: Type.NUMBER },
-                  confidence: { type: Type.STRING },
-                  odds: { type: Type.NUMBER }
-                }
-              }
-            },
-            analysis: { type: Type.STRING },
-            vipInsight: {
-              type: Type.OBJECT,
-              properties: {
-                exactScores: { type: Type.ARRAY, items: { type: Type.STRING } },
-                strategy: {
-                  type: Type.OBJECT,
-                  properties: {
-                    safe: { type: Type.STRING },
-                    value: { type: Type.STRING },
-                    aggressive: { type: Type.STRING }
-                  },
-                  required: ["safe", "value", "aggressive"]
-                },
-                keyFact: { type: Type.STRING },
-                detailedStats: {
-                  type: Type.OBJECT,
-                  properties: {
-                    corners: { type: Type.STRING },
-                    yellowCards: { type: Type.STRING },
-                    shotsOnTarget: { type: Type.STRING },
-                    fouls: { type: Type.STRING },
-                    scorers: {
-                      type: Type.ARRAY,
-                      items: {
-                        type: Type.OBJECT,
-                        properties: {
-                          name: { type: Type.STRING },
-                          probability: { type: Type.NUMBER }
-                        }
-                      }
-                    }
-                  }
-                }
-              },
-              required: ["exactScores", "strategy", "keyFact"]
-            }
-          },
-          required: ["predictions", "analysis", "vipInsight"]
-        },
-        temperature: 0.2
+        temperature: 0.1
       }
     });
 
-    const data = JSON.parse(response.text || '{}');
+    const rawText = response.text || '{}';
+    const data = JSON.parse(rawText.replace(/```json|```/g, "").trim());
 
     return {
       predictions: (data.predictions || []).map((p: any) => ({
         ...p,
         confidence: (p.confidence || 'MEDIUM').toUpperCase() as Confidence,
       })),
-      analysis: data.analysis || "Analyse tactique en cours de finalisation...",
-      // Added missing strategy property to satisfy VipInsight type definition
+      analysis: data.analysis || "Analyse tactique disponible pour les membres Elite.",
       vipInsight: data.vipInsight || { 
         exactScores: ["?-?"], 
         keyFact: "N/A",
@@ -134,18 +78,17 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
       sources: []
     };
   } catch (error) {
-    console.error("Gemini Error:", error);
+    console.error("Gemini Critical Error:", error);
     return {
       predictions: [
         { type: "1X2", recommendation: "N/A", probability: 50, confidence: Confidence.MEDIUM, odds: 0 },
         { type: "O/U 2.5", recommendation: "N/A", probability: 50, confidence: Confidence.MEDIUM, odds: 0 },
         { type: "BTTS", recommendation: "N/A", probability: 50, confidence: Confidence.MEDIUM, odds: 0 }
       ],
-      analysis: "L'IA est temporairement indisponible pour ce match.",
-      // Added missing strategy property to satisfy VipInsight type definition in error fallback
+      analysis: "Erreur lors de la génération de l'analyse IA.",
       vipInsight: { 
         exactScores: ["?-?"], 
-        keyFact: "Erreur de connexion",
+        keyFact: "Erreur serveur",
         strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" }
       },
       sources: []
