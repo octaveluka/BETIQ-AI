@@ -138,6 +138,7 @@ const PredictionsView: React.FC<any> = ({ matches, loading, language, isVip, sel
   const freeHome = useMemo(() => filtered.filter(m => !isPopularMatch(m)).slice(0, 3), [filtered]);
 
   const handleMatchClick = (m: FootballMatch, locked: boolean) => {
+    // Redirection directe vers réglages si verrouillé
     if (locked && !isVip) {
       navigate('/settings');
       return;
@@ -176,7 +177,7 @@ const VipZoneView: React.FC<any> = ({ matches, loading, language, isVip, selecte
   const filtered = useMemo(() => {
     let base = matches.filter(m => m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) || m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase()));
     if (selectedLeagueType === 'top5') return base.filter(m => m.league_id && ['152', '302', '207', '175', '168'].includes(m.league_id));
-    if (selectedLeagueType === 'can') return base.filter(m => m.league_id === '28' || m.league.toLowerCase().includes('africa cup') || m.league.toLowerCase().includes('can') || m.country_name === 'Africa');
+    if (selectedLeagueType === 'can') return base.filter(m => m.league_id === '28' || m.league.toLowerCase().includes('africa cup') || m.league.toLowerCase().includes('can') || m.country_name?.toLowerCase().includes('africa'));
     if (selectedLeagueType === 'others') return base.filter(m => m.league_id && !['152', '302', '207', '175', '168'].includes(m.league_id) && m.league_id !== '28');
     return base;
   }, [matches, searchTerm, selectedLeagueType]);
@@ -218,15 +219,14 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
   const forcedLock = state?.forceLock as boolean;
   const [data, setData] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const S = STRINGS[language];
 
   const prepareAndAnalyze = async (m: FootballMatch) => {
-    setLoading(true); setData(null); setError(null);
+    setLoading(true); setData(null);
     try {
       const res = await generatePredictionsAndAnalysis(m, language);
       setData(res);
-    } catch (e) { setError("Erreur d'analyse."); } finally { setLoading(false); }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   useEffect(() => { if (match) prepareAndAnalyze(match); }, [match, language]);
@@ -248,7 +248,7 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
                 <div key={i} className="bg-[#0b1121] p-8 rounded-[2.5rem] flex justify-between items-center shadow-xl border border-white/5 overflow-hidden relative">
                   <div className="absolute left-0 top-0 w-1.5 h-full bg-blue-500"></div>
                   <div><span className="text-[11px] font-bold text-blue-400 uppercase block mb-1">{p.type}</span><div className="text-2xl font-black text-white italic uppercase tracking-tight">{p.recommendation}</div></div>
-                  <div className="text-right"><div className="text-4xl font-black text-white">{p.probability}%</div><div className="flex items-center justify-end gap-1.5 mt-1"><div className={`w-2.5 h-2.5 rounded-full ${p.confidence === 'HIGH' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]'}`}></div><span className="text-[10px] font-black text-slate-500 uppercase">{p.confidence === 'HIGH' ? 'ÉLEVÉ' : 'MOYEN'}</span></div></div>
+                  <div className="text-right"><div className="text-4xl font-black text-white">{p.probability}%</div><div className="flex items-center justify-end gap-1.5 mt-1"><div className={`w-2.5 h-2.5 rounded-full ${p.confidence === 'HIGH' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div><span className="text-[10px] font-black text-slate-500 uppercase">{p.confidence === 'HIGH' ? 'ÉLEVÉ' : 'MOYEN'}</span></div></div>
                 </div>
               ))}
             </div>
@@ -348,7 +348,24 @@ const App: React.FC = () => {
   }, []);
 
   const fetchMatches = async (date: string) => {
-    setLoading(true); try { const data = await fetchMatchesByDate(date); setMatches(data.map(m => ({ id: m.match_id, league: m.league_name, league_id: m.league_id, homeTeam: m.match_hometeam_name, awayTeam: m.match_awayteam_name, homeLogo: m.team_home_badge, awayLogo: m.team_away_badge, time: m.match_time, status: m.match_status, country_name: m.country_name, stats: { homeForm: [], awayForm: [], homeRank: 0, awayRank: 0, h2h: '' }, predictions: [] }))); } catch (e) {} finally { setLoading(false); }
+    setLoading(true); 
+    try { 
+      const data = await fetchMatchesByDate(date); 
+      setMatches(data.map(m => ({ 
+        id: m.match_id, 
+        league: m.league_name, 
+        league_id: m.league_id, 
+        homeTeam: m.match_hometeam_name, 
+        awayTeam: m.match_awayteam_name, 
+        homeLogo: m.team_home_badge, 
+        awayLogo: m.team_away_badge, 
+        time: m.match_time, 
+        status: m.match_status, 
+        country_name: m.country_name,
+        stats: { homeForm: [], awayForm: [], homeRank: 0, awayRank: 0, h2h: '' }, 
+        predictions: [] 
+      }))); 
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   useEffect(() => { if (user) fetchMatches(selectedDate); }, [selectedDate, user]);
@@ -367,9 +384,9 @@ const App: React.FC = () => {
       </Routes>
 
       <nav className="fixed bottom-6 left-6 right-6 bg-[#0b1121]/95 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] py-3 flex items-center justify-around z-50 shadow-2xl">
-        {/* Standard User sees DIRECT, VIP User ONLY sees VIP & SETTINGS */}
+        {/* Navigation persistante : 3 menus pour Standard, 2 pour VIP */}
         {!isVip && (
-          <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400"><LayoutGrid size={22} /><span className="text-[8px] font-black uppercase">DIRECT</span></Link>
+          <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400 transition-colors"><LayoutGrid size={22} /><span className="text-[8px] font-black uppercase">DIRECT</span></Link>
         )}
         
         <Link to="/vip" className="flex flex-col items-center group relative px-4">
@@ -379,7 +396,7 @@ const App: React.FC = () => {
           <span className={`text-[9px] font-black mt-1.5 uppercase italic tracking-widest ${isVip ? 'text-[#c18c32]' : 'text-orange-500'}`}>VIP</span>
         </Link>
         
-        <Link to="/settings" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400"><Settings size={22} /><span className="text-[8px] font-black uppercase">RÉGLAGES</span></Link>
+        <Link to="/settings" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400 transition-colors"><Settings size={22} /><span className="text-[8px] font-black uppercase">RÉGLAGES</span></Link>
       </nav>
     </div>
   );

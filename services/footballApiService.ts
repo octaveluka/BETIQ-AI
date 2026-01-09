@@ -37,19 +37,28 @@ export async function fetchMatchesByDate(date: string): Promise<ApiMatch[]> {
     const data = await response.json();
     if (data.error || !Array.isArray(data)) return [];
     
-    // On élargit les critères pour ne rater aucun match de la CAN
-    const africanKeywords = ['Africa', 'CAN', 'Cup of Nations', 'CAF', 'Afrique'];
+    // Filtres étendus selon les exigences
+    const africanKeywords = ['Africa', 'CAN', 'Cup of Nations', 'CAF', 'Afrique', 'Coupe d\'Afrique'];
+    const eliteKeywords = [
+      'Champions League', 'Europa League', 'Conference League', 'Libertadores', 
+      'CONCACAF', 'FIFA Club World Cup', 'World Cup', 'Euro', 'Copa América', 
+      'Asian Cup', 'Gold Cup', 'Nations League', 'Copa del Rey', 'Coupe du roi', 'King\'s Cup'
+    ];
+    const majorCountries = [
+      'England', 'Spain', 'Italy', 'Germany', 'France', 
+      'Brazil', 'Mexico', 'USA', 'Portugal', 'Netherlands'
+    ];
 
     return data.filter(m => {
-      const isAfrican = africanKeywords.some(key => 
-        m.league_name.includes(key) || 
-        m.country_name.includes(key)
-      );
+      const name = m.league_name.toLowerCase();
+      const country = m.country_name.toLowerCase();
       
-      const isTopLeague = ['England', 'Spain', 'France', 'Italy', 'Germany'].includes(m.country_name);
-      const isEliteLeague = ['Champions League', 'Europa League'].some(l => m.league_name.includes(l));
-
-      return isAfrican || isTopLeague || isEliteLeague || m.league_id === '28';
+      const isAfrican = africanKeywords.some(key => name.includes(key.toLowerCase()) || country.includes(key.toLowerCase()));
+      const isElite = eliteKeywords.some(key => name.includes(key.toLowerCase()));
+      const isMajorCountry = majorCountries.some(c => country === c.toLowerCase());
+      
+      // On garde aussi spécifiquement l'ID 28 (souvent CAN)
+      return isAfrican || isElite || isMajorCountry || m.league_id === '28';
     });
 
   } catch (error) {
