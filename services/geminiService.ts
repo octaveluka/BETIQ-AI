@@ -11,23 +11,35 @@ export interface AnalysisResult {
 export async function generatePredictionsAndAnalysis(match: Partial<FootballMatch>, language: string): Promise<AnalysisResult> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
+  const isMajorLeague = ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Champions League'].some(l => match.league?.includes(l));
+
   const prompt = `
-    TON RÔLE : Expert mondial en paris sportifs et analyste de données football.
+    TON RÔLE : Analyste expert en Data Football.
     MATCH : ${match.homeTeam} vs ${match.awayTeam} (${match.league}).
     
     INSTRUCTIONS :
-    1. Utilise l'outil Google Search pour trouver les news les plus récentes (compositions probables, blessures de dernière minute, météo, enjeux).
-    2. Analyse les statistiques historiques (H2H) et la forme actuelle.
-    3. Produis des probabilités en % pour les marchés : 1X2, Over/Under 2.5, BTTS.
-    4. Propose un verdict tactique et 2 scores exacts VIP.
+    1. Analyse les news via Google Search (compositions, absents, forme).
+    2. Marchés : 1X2, Over/Under 2.5, BTTS (Probabilités en %).
+    3. ${isMajorLeague ? 'INCLURE STATISTIQUES DÉTAILLÉES : corners, cartons jaunes, hors-jeu, fautes, tirs, tirs cadrés (soit match total soit par équipe).' : ''}
+    4. ${isMajorLeague ? 'INCLURE BUTEURS PROBABLES avec leur % de probabilité.' : ''}
+    5. Propose 2 scores exacts VIP.
     
-    TU DOIS RÉPONDRE EXCLUSIVEMENT AU FORMAT JSON SUIVANT :
+    RÉPONDS STRICTEMENT AU FORMAT JSON SUIVANT :
     {
       "predictions": [{"type": "1X2", "recommendation": "1", "probability": 75, "confidence": "HIGH", "odds": 1.65}],
-      "analysis": "Texte détaillé du verdict tactique en ${language}...",
+      "analysis": "Verdict tactique détaillé en ${language}...",
       "vipInsight": {
         "exactScores": ["2-1", "3-1"],
-        "keyFact": "L'absence du gardien titulaire de ${match.awayTeam} est critique."
+        "keyFact": "Détail clé du match...",
+        "detailedStats": {
+          "corners": "Ex: Over 8.5",
+          "yellowCards": "Ex: 4-5 total",
+          "offsides": "Ex: Low frequency",
+          "fouls": "Ex: High intensity",
+          "shots": "Ex: 12-15 shots",
+          "shotsOnTarget": "Ex: 5-6 target",
+          "scorers": [{"name": "Nom Joueur", "probability": 45}]
+        }
       }
     }
   `;
@@ -38,7 +50,7 @@ export async function generatePredictionsAndAnalysis(match: Partial<FootballMatc
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        thinkingConfig: { thinkingBudget: 12000 }, // Plus de budget pour une meilleure analyse
+        thinkingConfig: { thinkingBudget: 15000 },
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -62,7 +74,28 @@ export async function generatePredictionsAndAnalysis(match: Partial<FootballMatc
               type: Type.OBJECT,
               properties: {
                 exactScores: { type: Type.ARRAY, items: { type: Type.STRING } },
-                keyFact: { type: Type.STRING }
+                keyFact: { type: Type.STRING },
+                detailedStats: {
+                  type: Type.OBJECT,
+                  properties: {
+                    corners: { type: Type.STRING },
+                    yellowCards: { type: Type.STRING },
+                    offsides: { type: Type.STRING },
+                    fouls: { type: Type.STRING },
+                    shots: { type: Type.STRING },
+                    shotsOnTarget: { type: Type.STRING },
+                    scorers: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          name: { type: Type.STRING },
+                          probability: { type: Type.NUMBER }
+                        }
+                      }
+                    }
+                  }
+                }
               },
               required: ["exactScores", "keyFact"]
             }
@@ -90,25 +123,12 @@ export async function generatePredictionsAndAnalysis(match: Partial<FootballMatc
       analysis: data.analysis,
       vipInsight: {
         ...data.vipInsight,
-        strategy: { 
-          safe: language === 'FR' ? "Option sécurisée" : "Safe option", 
-          value: "Value Bet", 
-          aggressive: language === 'FR' ? "Cote risquée" : "High odds" 
-        }
+        strategy: { safe: "Safe", value: "Value", aggressive: "High" }
       },
       sources
     };
   } catch (error) {
-    console.error("Gemini Error:", error);
-    return {
-      predictions: [{ type: BetType.W1X2, recommendation: "1X", probability: 60, confidence: Confidence.MEDIUM, odds: 1.40 }],
-      analysis: language === 'FR' ? "L'IA compile les dernières statistiques..." : "AI is compiling latest stats...",
-      vipInsight: {
-        exactScores: ["1-0", "1-1"],
-        strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" },
-        keyFact: language === 'FR' ? "En attente des données terrain" : "Awaiting pitch data"
-      },
-      sources: []
-    };
+    console.error("Gemini Critical Error:", error);
+    throw error;
   }
 }
