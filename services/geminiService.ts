@@ -11,7 +11,6 @@ export interface AnalysisResult {
 export async function generatePredictionsAndAnalysis(match: FootballMatch, language: string): Promise<AnalysisResult> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Préparation des données statistiques injectées pour l'IA
   const homeStanding = match.homeTeamStats ? `${match.homeTeam} est ${match.homeTeamStats.standing}e avec ${match.homeTeamStats.points} pts` : 'N/A';
   const awayStanding = match.awayTeamStats ? `${match.awayTeam} est ${match.awayTeamStats.standing}e avec ${match.awayTeamStats.points} pts` : 'N/A';
   const homeForm = match.homeTeamStats?.recentForm?.join(', ') || 'N/A';
@@ -27,7 +26,11 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
     - Forme : ${match.homeTeam} (${homeForm}) vs ${match.awayTeam} (${awayForm})
 
     TACHE : Génère une analyse fondamentale et des probabilités.
-    RÉPONDS EXCLUSIVEMENT EN JSON (SANS MARKDOWN) :
+    RÈGLES STRICTES :
+    1. Donne EXACTEMENT 2 suggestions de scores exacts.
+    2. Format de réponse EXCLUSIVEMENT JSON.
+
+    STRUCTURE JSON :
     {
       "predictions": [{"type": "1X2", "recommendation": "1", "probability": 70, "confidence": "HIGH", "odds": 1.70}],
       "analysis": "Analyse tactique condensée...",
@@ -53,22 +56,27 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        temperature: 0.7
+        temperature: 0, // Zéro pour une constance maximale
+        seed: 42 // Graine fixe pour des résultats identiques
       }
     });
 
     const rawText = response.text;
-    // Nettoyage au cas où le modèle renverrait du Markdown
     const jsonText = rawText.replace(/```json|```/g, "").trim();
     const data = JSON.parse(jsonText);
     
+    // S'assurer qu'il n'y a que 2 scores
+    if (data.vipInsight && data.vipInsight.exactScores) {
+      data.vipInsight.exactScores = data.vipInsight.exactScores.slice(0, 2);
+    }
+
     return {
       predictions: (data.predictions || []).map((p: any) => ({
         ...p,
         confidence: (p.confidence as string).toUpperCase() as Confidence,
         type: p.type as BetType
       })),
-      analysis: data.analysis || "Analyse en cours de traitement...",
+      analysis: data.analysis || "Analyse indisponible.",
       vipInsight: {
         ...data.vipInsight,
         strategy: { safe: "Sécure", value: "Value", aggressive: "Risqué" }
@@ -77,14 +85,13 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
     };
   } catch (error) {
     console.error("Gemini Critical Error:", error);
-    // Retour d'un objet par défaut pour éviter le crash UI
     return {
       predictions: [{ type: BetType.W1X2, recommendation: "1X", probability: 50, confidence: Confidence.MEDIUM, odds: 0 }],
-      analysis: "L'IA n'a pas pu finaliser l'analyse. Veuillez réessayer dans quelques instants.",
+      analysis: "Erreur lors de l'analyse IA. Les serveurs sont peut-être surchargés.",
       vipInsight: {
         exactScores: ["?-?"],
         strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" },
-        keyFact: "Données indisponibles."
+        keyFact: "Indisponible."
       },
       sources: []
     };

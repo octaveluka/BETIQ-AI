@@ -146,7 +146,6 @@ const PredictionsView: React.FC<any> = ({ matches, loading, language, isVip, sel
     return { vipHome: vip, freeHome: free };
   }, [filtered]);
 
-  // Si VIP, on redirige vers l'espace VIP unifié directement
   useEffect(() => {
     if (isVip) navigate('/vip');
   }, [isVip, navigate]);
@@ -295,10 +294,23 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
   const S = STRINGS[language];
 
   const prepareAndAnalyze = async (m: FootballMatch) => {
+    // Vérification du Cache Local pour la Persistence
+    const cacheKey = `betiq_analysis_${m.id}_${language}`;
+    const cachedData = localStorage.getItem(cacheKey);
+    
+    if (cachedData) {
+      try {
+        setData(JSON.parse(cachedData));
+        return; // On arrête là si on a déjà l'analyse en mémoire
+      } catch (e) {
+        console.warn("Cache parsing error", e);
+      }
+    }
+
     setLoading(true);
     setError(null);
     try {
-      // 1. Récupération des stats réelles avant l'IA
+      // 1. Récupération des stats réelles
       if (m.league_id) {
         const standings = await fetchStandings(m.league_id);
         if (Array.isArray(standings)) {
@@ -309,9 +321,12 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
         }
       }
       
-      // 2. Appel IA sécurisé
+      // 2. Appel IA
       const res = await generatePredictionsAndAnalysis(m, language);
       if (!res || !res.predictions) throw new Error("No data returned");
+      
+      // 3. Sauvegarde dans le cache pour les fois prochaines
+      localStorage.setItem(cacheKey, JSON.stringify(res));
       setData(res);
     } catch (e) { 
       console.error("AI Analysis Error:", e);
@@ -338,7 +353,6 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
       </nav>
 
       <div className="p-5 space-y-8 max-w-2xl mx-auto">
-        {/* Teams Header */}
         <div className="bg-[#0b1121] p-10 rounded-[3.5rem] border border-white/5 flex items-center justify-around shadow-2xl">
           <div className="text-center w-1/3">
              <img src={match.homeLogo} className="w-20 h-20 mx-auto mb-4 object-contain" alt="home" />
@@ -352,7 +366,7 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
         </div>
 
         {forcedLock && !isVip ? (
-          <div className="bg-[#0b1121] p-12 rounded-[3.5rem] border border-orange-500/20 text-center space-y-8 shadow-2xl">
+          <div className="bg-[#0b1121] p-12 rounded-[3.5rem] border border-orange-500/20 text-center shadow-2xl space-y-8">
             <Lock size={48} className="text-orange-500 mx-auto" />
             <h2 className="text-2xl font-black text-white uppercase italic">ANALYSE ÉLITE BLOQUÉE</h2>
             <button onClick={() => navigate('/settings')} className="w-full bg-orange-500 text-slate-950 font-black py-5 rounded-2xl text-[10px] uppercase">PASSER VIP MAINTENANT</button>
@@ -370,7 +384,6 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
           </div>
         ) : data && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-500">
-            {/* Predictions Grid */}
             <div className="grid grid-cols-1 gap-4">
               {data.predictions.map((p: any, i: number) => (
                 <div key={i} className="bg-[#0b1121] p-7 rounded-[2.5rem] border border-white/5 flex justify-between items-center shadow-xl">
@@ -386,7 +399,6 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
               ))}
             </div>
 
-            {/* VIP Insights */}
             <div className="bg-orange-500/5 p-10 rounded-[3.5rem] border border-orange-500/20 space-y-8 shadow-xl">
               <div className="flex items-center gap-3">
                 <Crown size={18} className="text-orange-500" />
@@ -439,9 +451,8 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
               )}
             </div>
 
-            {/* AI Verdict */}
             <div className="bg-[#0b1121] p-10 rounded-[3.5rem] border-l-8 border-blue-500 shadow-2xl">
-               <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-4 italic tracking-[0.2em]">{S.algoVerdict}</span>
+               <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-4 italic">{S.algoVerdict}</span>
                <p className="text-[15px] text-slate-200 leading-relaxed font-bold italic uppercase">{data.analysis}</p>
             </div>
           </div>
@@ -563,7 +574,6 @@ const App: React.FC = () => {
         </Routes>
 
         <nav className="fixed bottom-6 left-6 right-6 bg-[#0b1121]/95 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] py-3 flex items-center justify-around z-50 shadow-2xl">
-          {/* Home supprimé strictement pour VIP */}
           {!isVip && (
             <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400">
               <LayoutGrid size={22} /><span className="text-[8px] font-black uppercase tracking-tighter">ACCUEIL</span>
