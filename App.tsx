@@ -1,3 +1,4 @@
+
 import { auth } from './services/firebase';
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
@@ -12,8 +13,8 @@ import {
 import { 
   Crown, Lock, LayoutGrid, Settings, ChevronLeft, Search,
   Loader2, RefreshCw, Zap, BrainCircuit, CheckCircle2,
-  LogOut, UserCircle, Target, Activity, AlertCircle, Goal, AlertTriangle,
-  Share2, TrendingUp, Globe, Trophy
+  LogOut, UserCircle, Target, Activity, Goal, AlertTriangle,
+  Share2, Globe, Trophy
 } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
@@ -23,7 +24,7 @@ import {
   User as FirebaseUser 
 } from "firebase/auth";
 
-import { FootballMatch, Confidence, Language, BetType, TeamStats } from './types';
+import { FootballMatch, Confidence, Language } from './types';
 import { MatchCard } from './components/MatchCard';
 import { VipSafeCard } from './components/VipSafeCard';
 import { generatePredictionsAndAnalysis, AnalysisResult } from './services/geminiService';
@@ -60,66 +61,45 @@ const STRINGS: Record<Language, any> = {
 };
 
 const ELITE_TEAMS = ['Real Madrid', 'Barcelona', 'Manchester City', 'Liverpool', 'Arsenal', 'Bayern Munich', 'PSG', 'Inter', 'AC Milan', 'Juventus', 'Dortmund', 'Chelsea', 'Atletico', 'Man Utd', 'Tottenham'];
-const isPopularMatch = (match: FootballMatch) => ELITE_TEAMS.some(t => match.homeTeam.includes(t) || match.awayTeam.includes(t));
-
-const DateSelector: React.FC<{ selectedDate: string, onDateChange: (d: string) => void }> = ({ selectedDate, onDateChange }) => (
-  <div className="flex gap-2 overflow-x-auto no-scrollbar py-3">
-    {[0,1,2,3,4,5,6,7].map(i => {
-      const d = new Date(); d.setDate(d.getDate() + i);
-      const iso = d.toISOString().split('T')[0];
-      const isSel = iso === selectedDate;
-      return (
-        <button key={iso} onClick={() => onDateChange(iso)} className={`flex-shrink-0 flex flex-col items-center justify-center min-w-[3.5rem] h-14 rounded-2xl border transition-all ${isSel ? 'bg-blue-600 border-blue-400 text-white' : 'bg-[#0b1121] border-white/5 text-slate-500'}`}>
-          <span className="text-[7px] font-black uppercase">{d.toLocaleDateString('fr-FR', { weekday: 'short' })}</span>
-          <span className="text-sm font-black italic">{d.getDate()}</span>
-        </button>
-      );
-    })}
-  </div>
-);
+const isPopularMatch = (match: FootballMatch) => {
+  const eliteKeywords = ['Champions League', 'Europa League', 'Conference League', 'Libertadores', 'CAN', 'Cup of Nations', 'World Cup', 'Euro', 'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Copa del Rey'];
+  return ELITE_TEAMS.some(t => match.homeTeam.includes(t) || match.awayTeam.includes(t)) || eliteKeywords.some(k => match.league.includes(k));
+};
 
 const LeagueSelector: React.FC<{ selected: string, onSelect: (s: string) => void }> = ({ selected, onSelect }) => {
   const LEAGUE_BUTTONS = [
     { id: 'all', name: 'Tous', icon: <Globe size={12}/> },
-    // International
-    { id: 'ucl', name: 'UCL', icon: <Trophy size={12}/> },
-    { id: 'uel', name: 'UEL', icon: <Trophy size={12}/> },
-    { id: 'uecl', name: 'UECL', icon: <Trophy size={12}/> },
-    { id: 'libertadores', name: 'Libertadores', icon: <Trophy size={12}/> },
-    { id: 'cafcl', name: 'CAF CL', icon: <Trophy size={12}/> },
+    { id: 'ucl', name: 'Ligue des Champions', icon: <Trophy size={12}/> },
+    { id: 'uel', name: 'Ligue Europa', icon: <Trophy size={12}/> },
+    { id: 'uecl', name: 'Conférence League', icon: <Trophy size={12}/> },
+    { id: 'libertadores', name: 'Copa Libertadores', icon: <Trophy size={12}/> },
+    { id: 'cafcl', name: 'CAF Champions', icon: <Trophy size={12}/> },
     { id: 'concacafcl', name: 'CONCACAF CL', icon: <Trophy size={12}/> },
-    { id: 'fifacwc', name: 'Club World Cup', icon: <Globe size={12}/> },
-    // Big Five
+    { id: 'fifacwc', name: 'Coupe du Monde Clubs', icon: <Globe size={12}/> },
     { id: '152', name: 'Premier League', icon: <Target size={12}/> },
     { id: '302', name: 'La Liga', icon: <Target size={12}/> },
     { id: '207', name: 'Serie A', icon: <Target size={12}/> },
     { id: '175', name: 'Bundesliga', icon: <Target size={12}/> },
     { id: '168', name: 'Ligue 1', icon: <Target size={12}/> },
-    // Others
     { id: 'brasileirao', name: 'Brasileirão', icon: <Target size={12}/> },
     { id: 'ligamx', name: 'Liga MX', icon: <Target size={12}/> },
     { id: 'mls', name: 'MLS', icon: <Target size={12}/> },
     { id: 'primeira', name: 'Primeira Liga', icon: <Target size={12}/> },
     { id: 'eredivisie', name: 'Eredivisie', icon: <Target size={12}/> },
-    // National Teams
-    { id: 'wc', name: 'World Cup', icon: <Trophy size={12}/> },
+    { id: 'wc', name: 'Coupe du Monde', icon: <Trophy size={12}/> },
     { id: 'euro', name: 'Euro', icon: <Trophy size={12}/> },
     { id: 'copa', name: 'Copa América', icon: <Trophy size={12}/> },
     { id: '28', name: 'CAN', icon: <Trophy size={12}/> },
-    { id: 'asiancup', name: 'Asian Cup', icon: <Trophy size={12}/> },
+    { id: 'asiancup', name: 'Coupe d\'Asie', icon: <Trophy size={12}/> },
     { id: 'goldcup', name: 'Gold Cup', icon: <Trophy size={12}/> },
-    { id: 'nationsleague', name: 'Nations League', icon: <Trophy size={12}/> },
+    { id: 'nationsleague', name: 'Ligue des Nations', icon: <Trophy size={12}/> },
     { id: 'copadelrey', name: 'Coupe du Roi', icon: <Trophy size={12}/> },
   ];
 
   return (
     <div className="flex gap-2 overflow-x-auto no-scrollbar py-2">
       {LEAGUE_BUTTONS.map(cat => (
-        <button 
-          key={cat.id} 
-          onClick={() => onSelect(cat.id)} 
-          className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase border transition-all ${selected === cat.id ? 'bg-[#c18c32] border-[#c18c32] text-slate-950 shadow-lg' : 'bg-[#0b1121] border-white/5 text-slate-500'}`}
-        >
+        <button key={cat.id} onClick={() => onSelect(cat.id)} className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase border transition-all ${selected === cat.id ? 'bg-[#c18c32] border-[#c18c32] text-slate-950 shadow-lg' : 'bg-[#0b1121] border-white/5 text-slate-500'}`}>
           {cat.icon}{cat.name}
         </button>
       ))}
@@ -127,49 +107,24 @@ const LeagueSelector: React.FC<{ selected: string, onSelect: (s: string) => void
   );
 };
 
-const AuthView: React.FC = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      if (isLogin) await signInWithEmailAndPassword(auth, email, password);
-      else await createUserWithEmailAndPassword(auth, email, password);
-    } catch (err: any) { setError('Erreur d\'authentification.'); } finally { setLoading(false); }
-  };
-
-  return (
-    <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center p-6">
-      <div className="mb-10 text-center"><BrainCircuit size={48} className="text-blue-400 mx-auto mb-4" /><h1 className="text-4xl font-black italic text-white uppercase">BETI<span className="text-orange-500">Q</span></h1></div>
-      <div className="w-full max-w-sm bg-[#0b1121] border border-white/5 p-8 rounded-[2.5rem] shadow-2xl">
-        <div className="flex bg-[#020617] p-1 rounded-2xl mb-8 border border-white/5">
-          <button onClick={() => setIsLogin(true)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase ${isLogin ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>CONNEXION</button>
-          <button onClick={() => setIsLogin(false)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase ${!isLogin ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>S'INSCRIRE</button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input type="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-[#020617] border border-white/10 rounded-xl py-4 px-5 text-xs text-white outline-none" />
-          <input type="password" placeholder="Mot de passe" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[#020617] border border-white/10 rounded-xl py-4 px-5 text-xs text-white outline-none" />
-          {error && <div className="text-[10px] text-rose-500 font-black text-center">{error}</div>}
-          <button disabled={loading} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl text-[11px] uppercase">{loading ? <Loader2 className="animate-spin mx-auto" size={16} /> : 'ACCÉDER'}</button>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 const PredictionsView: React.FC<any> = ({ matches, loading, language, isVip, selectedDate, onDateChange, onRefresh }) => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedLeague, setSelectedLeague] = useState('all');
   const S = STRINGS[language];
-  const filtered = useMemo(() => matches.filter(m => m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) || m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase())), [matches, searchTerm]);
-  const vipHome = useMemo(() => filtered.filter(isPopularMatch).slice(0, 2), [filtered]);
-  const freeHome = useMemo(() => filtered.filter(m => !isPopularMatch(m)).slice(0, 3), [filtered]);
+
+  const filtered = useMemo(() => {
+    let base = matches.filter(m => m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) || m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (selectedLeague === 'all') return base;
+    if (!isNaN(Number(selectedLeague))) return base.filter(m => m.league_id === selectedLeague);
+    const keywordMap: any = { ucl: 'champions league', uel: 'europa league', uecl: 'conference', libertadores: 'libertadores', cafcl: 'caf champions', concacafcl: 'concacaf champions', fifacwc: 'club world cup', brasileirao: 'brasileirão', ligamx: 'liga mx', mls: 'mls', primeira: 'primeira liga', eredivisie: 'eredivisie', wc: 'world cup', euro: 'euro', copa: 'copa america', can: 'cup of nations', asiancup: 'asian cup', goldcup: 'gold cup', nationsleague: 'nations league', copadelrey: 'copa del rey' };
+    const keyword = keywordMap[selectedLeague];
+    if (keyword) return base.filter(m => m.league.toLowerCase().includes(keyword));
+    return base;
+  }, [matches, searchTerm, selectedLeague]);
+
+  const vipList = useMemo(() => filtered.filter(isPopularMatch), [filtered]);
+  const freeList = useMemo(() => filtered.filter(m => !isPopularMatch(m)), [filtered]);
 
   const handleMatchClick = (m: FootballMatch, locked: boolean) => {
     if (locked && !isVip) { navigate('/settings'); return; }
@@ -184,132 +139,209 @@ const PredictionsView: React.FC<any> = ({ matches, loading, language, isVip, sel
       </header>
       <div className="mb-8 space-y-4">
         <div className="relative"><Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" /><input type="text" placeholder={S.searchPlaceholder} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-[#0b1121] border border-white/5 rounded-2xl py-4 pl-12 pr-6 text-xs text-white outline-none" /></div>
-        <DateSelector selectedDate={selectedDate} onDateChange={onDateChange} />
+        <LeagueSelector selected={selectedLeague} onSelect={setSelectedLeague} />
+        <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+          {[0,1,2,3,4,5,6,7].map(i => {
+            const d = new Date(); d.setDate(d.getDate() + i);
+            const iso = d.toISOString().split('T')[0];
+            return (
+              <button key={iso} onClick={() => onDateChange(iso)} className={`flex-shrink-0 flex flex-col items-center justify-center min-w-[3.2rem] h-12 rounded-xl border transition-all ${iso === selectedDate ? 'bg-blue-600 border-blue-400 text-white' : 'bg-[#0b1121] border-white/5 text-slate-500'}`}>
+                <span className="text-[6px] font-black uppercase">{d.toLocaleDateString('fr-FR', { weekday: 'short' })}</span>
+                <span className="text-xs font-black">{d.getDate()}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
       <div className="space-y-10">
-        <section className="space-y-4"><div className="flex items-center gap-2"><Crown size={14} className="text-orange-500" /><h3 className="text-[10px] font-black text-slate-500 uppercase italic">MATCHS ELITE VIP</h3></div>
-          <div className="grid grid-cols-1 gap-4">{vipHome.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={true} onClick={(m) => handleMatchClick(m, true)} />))}</div>
+        <section className="space-y-4"><div className="flex items-center gap-2"><Crown size={14} className="text-orange-500" /><h3 className="text-[10px] font-black text-slate-500 uppercase italic">LIGUES ÉLITES (VERROUILLÉ STANDARD)</h3>
+          <div className="grid grid-cols-1 gap-4">{vipList.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={true} onClick={(m) => handleMatchClick(m, true)} />))}</div>
         </section>
-        <section className="space-y-4"><div className="flex items-center gap-2"><Zap size={14} className="text-blue-400" /><h3 className="text-[10px] font-black text-slate-500 uppercase italic">ANALYSES GRATUITES</h3></div>
-          <div className="grid grid-cols-1 gap-4">{freeHome.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={false} onClick={(m) => handleMatchClick(m, false)} />))}</div>
+        <section className="space-y-4"><div className="flex items-center gap-2"><Zap size={14} className="text-blue-400" /><h3 className="text-[10px] font-black text-slate-500 uppercase italic">ANALYSES ACCESSIBLES</h3>
+          <div className="grid grid-cols-1 gap-4">{freeList.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={false} onClick={(m) => handleMatchClick(m, false)} />))}</div>
         </section>
       </div>
     </div>
   );
 };
 
-const VipZoneView: React.FC<any> = ({ matches, loading, language, isVip, selectedDate, onDateChange }) => {
-  const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedLeagueType, setSelectedLeagueType] = useState('all');
-  const S = STRINGS[language];
+/* AuthView Fix: Implemented missing AuthView component */
+const AuthView: React.FC = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
+  const [error, setError] = useState('');
 
-  const filtered = useMemo(() => {
-    let base = matches.filter(m => m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) || m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase()));
-    if (selectedLeagueType === 'all') return base;
-    if (!isNaN(Number(selectedLeagueType))) return base.filter(m => m.league_id === selectedLeagueType);
-
-    const keywordMap: Record<string, string[]> = {
-      ucl: ['champions league'], uel: ['europa league'], uecl: ['conference league'], libertadores: ['libertadores'], cafcl: ['caf champions'], concacafcl: ['concacaf champions'], fifacwc: ['club world cup'], ligamx: ['liga mx'], mls: ['major league soccer', 'mls'], primeira: ['primeira liga'], eredivisie: ['eredivisie'], wc: ['world cup'], euro: ['euro'], copa: ['copa america'], asiancup: ['asian cup'], goldcup: ['gold cup'], nationsleague: ['nations league'], copadelrey: ['copa del rey', 'coupe du roi', 'king\'s cup']
-    };
-    if (selectedLeagueType === 'brasileirao') return base.filter(m => m.country_name === 'Brazil');
-    const keywords = keywordMap[selectedLeagueType];
-    if (keywords) return base.filter(m => keywords.some(k => m.league.toLowerCase().includes(k)));
-    return base;
-  }, [matches, searchTerm, selectedLeagueType]);
-
-  const winners3 = useMemo(() => filtered.filter(isPopularMatch).slice(0, 3), [filtered]);
-  const others = useMemo(() => filtered.filter(m => !winners3.some(t => t.id === m.id)), [filtered, winners3]);
-
-  const handleMatchClick = (m: FootballMatch, locked: boolean) => {
-    if (locked && !isVip) { navigate('/settings'); return; }
-    navigate(`/match/${m.id}`, { state: { match: m, forceLock: locked } });
+  const handleAuth = async () => {
+    try {
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+      }
+    } catch (e: any) {
+      setError(e.message);
+    }
   };
 
   return (
-    <div className="p-5 pb-32 max-w-2xl mx-auto space-y-6">
-      <header className="flex items-center justify-between pt-4"><div className="flex items-center gap-3"><div className={`p-2.5 rounded-2xl ${isVip ? 'bg-[#c18c32]' : 'bg-orange-500'} shadow-lg`}><Crown size={28} className="text-slate-950" /></div><div><h2 className="text-2xl font-black italic text-white uppercase">{isVip ? 'PRONOSTICS ELITE' : 'ACCÈS VIP'}</h2><p className="text-[8px] font-black text-slate-500 uppercase">IA FONDAMENTALE</p></div></div></header>
-      <div className="space-y-4">
-        <div className="relative"><Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" /><input type="text" placeholder={S.searchPlaceholder} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-[#0b1121] border border-white/5 rounded-2xl py-4 pl-12 pr-6 text-xs text-white outline-none" /></div>
-        <LeagueSelector selected={selectedLeagueType} onSelect={setSelectedLeagueType} />
-        <DateSelector selectedDate={selectedDate} onDateChange={onDateChange} />
-      </div>
-      {loading ? (<div className="py-24 text-center"><Loader2 className="animate-spin text-orange-500 mx-auto" size={40} /></div>) : (
-        <div className="space-y-12">
-          <section className="space-y-5"><h3 className="text-[11px] font-black text-orange-500 uppercase italic">CONFIANCE MAX</h3><div className="space-y-4">{winners3.map(m => (<VipSafeCard key={m.id} match={m} isLocked={!isVip} onClick={() => handleMatchClick(m, true)} />))}</div></section>
-          <section className="space-y-5"><h3 className="text-[11px] font-black text-slate-600 uppercase italic">LISTE COMPLÈTE</h3><div className="grid grid-cols-1 gap-5">{others.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={true} onClick={(m) => handleMatchClick(m, true)} />))}</div></section>
+    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6">
+      <div className="w-full max-w-md space-y-8 bg-[#0b1121] p-8 rounded-[2.5rem] border border-white/5 shadow-2xl">
+        <div className="text-center">
+          <BrainCircuit size={48} className="text-blue-400 mx-auto mb-4" />
+          <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter">BETI<span className="text-orange-500">Q</span></h2>
+          <p className="text-slate-500 text-xs mt-2 uppercase font-bold tracking-widest">{isLogin ? 'Connexion' : 'Inscription'}</p>
         </div>
-      )}
-      {!isVip && (<div className="mt-8 bg-[#0b1121] border border-orange-500/20 p-10 rounded-[3rem] text-center space-y-6"><Lock size={40} className="text-orange-500 mx-auto" /><p className="text-xs font-bold text-slate-300 italic uppercase">Scores exacts, Corners et Buteurs Élite.</p><button onClick={() => navigate('/settings')} className="w-full bg-orange-500 text-slate-950 font-black py-5 rounded-2xl text-[11px] uppercase">PASSER VIP</button></div>)}
+        <div className="space-y-4">
+          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm outline-none" />
+          <input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm outline-none" />
+          {error && <p className="text-rose-500 text-[10px] font-bold uppercase">{error}</p>}
+          <button onClick={handleAuth} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest text-xs">
+            {isLogin ? 'Se connecter' : "S'inscrire"}
+          </button>
+          <button onClick={() => setIsLogin(!isLogin)} className="w-full text-slate-500 text-[10px] font-bold uppercase tracking-widest">
+            {isLogin ? "Pas de compte ? S'inscrire" : "Déjà un compte ? Se connecter"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
 
+/* SettingsView Fix: Implemented missing SettingsView component */
+const SettingsView: React.FC<any> = ({ language, setLanguage, isVip, setIsVip, userEmail }) => {
+  const [code, setCode] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const activateVip = () => {
+    if (VALID_USER_CODES.has(code) || code === ADMIN_CODE) {
+      setIsVip(true);
+      localStorage.setItem(`btq_vip_status_${userEmail}`, 'true');
+      localStorage.setItem(`btq_vip_start_${userEmail}`, Date.now().toString());
+      setMsg("VIP ACTIVÉ ! Profitez de vos pronostics élites.");
+    } else {
+      setMsg("Code invalide.");
+    }
+  };
+
+  return (
+    <div className="pb-32 px-5 max-w-2xl mx-auto pt-10">
+      <h2 className="text-2xl font-black uppercase italic mb-8">Réglages</h2>
+      <div className="space-y-6">
+        <div className="bg-[#0b1121] p-6 rounded-[2rem] border border-white/5">
+          <h3 className="text-[10px] font-black text-slate-500 uppercase mb-4 flex items-center gap-2"><Globe size={12}/> Langue</h3>
+          <div className="flex gap-2">
+            {['FR', 'EN'].map(l => (
+              <button key={l} onClick={() => { setLanguage(l as Language); localStorage.setItem('lang', l); }} className={`flex-1 py-3 rounded-xl font-black text-xs ${language === l ? 'bg-blue-600' : 'bg-slate-900 text-slate-500'}`}>{l}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-[#0b1121] p-6 rounded-[2rem] border border-orange-500/20">
+          <h3 className="text-[10px] font-black text-orange-500 uppercase mb-4 flex items-center gap-2"><Crown size={12}/> {isVip ? 'Statut VIP : Actif' : 'Devenir VIP'}</h3>
+          {!isVip ? (
+            <div className="space-y-4">
+              <p className="text-xs text-slate-400">Accédez aux analyses des matchs de Ligue des Champions, Premier League et plus encore.</p>
+              <a href={PAYMENT_LINK} target="_blank" rel="noreferrer" className="block text-center w-full bg-orange-500 text-slate-950 font-black py-3 rounded-xl text-xs uppercase">Acheter un code d'accès</a>
+              <div className="flex gap-2">
+                <input type="text" placeholder="Entrer code" value={code} onChange={e => setCode(e.target.value)} className="flex-1 bg-slate-900 border border-white/5 rounded-xl px-4 text-xs outline-none" />
+                <button onClick={activateVip} className="bg-white text-slate-950 px-6 py-3 rounded-xl font-black text-xs uppercase">OK</button>
+              </div>
+              {msg && <p className="text-[10px] font-bold text-center text-orange-500">{msg}</p>}
+            </div>
+          ) : (
+            <p className="text-xs text-emerald-500 font-bold uppercase italic">Vous êtes membre ELITE VIP</p>
+          )}
+        </div>
+
+        <button onClick={() => signOut(auth)} className="w-full flex items-center justify-center gap-2 text-rose-500 font-black uppercase text-xs p-6 bg-rose-500/5 rounded-[2rem] border border-rose-500/20">
+          <LogOut size={16}/> Déconnexion
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/* MatchDetailView Fix: Implemented missing MatchDetailView component */
 const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
   const { state } = useLocation();
   const navigate = useNavigate();
   const match = state?.match as FootballMatch;
-  const forcedLock = state?.forceLock as boolean;
-  const [data, setData] = useState<AnalysisResult | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const S = STRINGS[language];
 
-  const prepareAndAnalyze = async (m: FootballMatch) => {
-    setLoading(true); setData(null);
-    try {
-      const res = await generatePredictionsAndAnalysis(m, language);
-      setData(res);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
+  useEffect(() => {
+    if (!match) { navigate('/'); return; }
+    const getAnalysis = async () => {
+      setLoading(true);
+      const res = await generatePredictionsAndAnalysis(match, language);
+      setAnalysis(res);
+      setLoading(false);
+    };
+    getAnalysis();
+  }, [match, language, navigate]);
 
-  useEffect(() => { if (match) prepareAndAnalyze(match); }, [match, language]);
-  if (!match) return <Navigate to="/" />;
+  if (!match) return null;
 
   return (
-    <div className="min-h-screen bg-[#020617] pb-40">
-      <nav className="p-6 sticky top-0 bg-[#020617]/90 backdrop-blur-2xl flex items-center justify-between z-50 border-b border-white/5">
-        <button onClick={() => navigate(-1)} className="p-3 bg-[#0b1121] rounded-2xl text-slate-400"><ChevronLeft size={22} /></button>
-        <span className="text-[11px] font-black uppercase text-white italic truncate max-w-[200px]">{match.homeTeam} VS {match.awayTeam}</span>
-        <button className="p-3 bg-[#0b1121] rounded-2xl text-slate-400"><Share2 size={20} /></button>
-      </nav>
-      <div className="px-6 py-8 space-y-8 max-w-2xl mx-auto">
-        <div className="flex items-center gap-2.5"><Activity size={14} className="text-blue-500" /><span className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">SIGNAL IA</span></div>
-        {loading ? (<div className="flex flex-col items-center py-24 gap-6"><Loader2 className="animate-spin text-blue-500" size={56} /><p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{S.loading}</p></div>) : data && (
-          <div className="space-y-8">
-            <div className="space-y-4">
-              {data.predictions.map((p, i) => (
-                <div key={i} className="bg-[#0b1121] p-8 rounded-[2.5rem] flex justify-between items-center shadow-xl border border-white/5 overflow-hidden relative">
-                  <div className="absolute left-0 top-0 w-1.5 h-full bg-blue-500"></div>
-                  <div><span className="text-[11px] font-bold text-blue-400 uppercase block mb-1">{p.type}</span><div className="text-2xl font-black text-white italic uppercase tracking-tight">{p.recommendation}</div></div>
-                  <div className="text-right"><div className="text-4xl font-black text-white">{p.probability}%</div><div className="flex items-center justify-end gap-1.5 mt-1"><div className={`w-2.5 h-2.5 rounded-full ${p.confidence === 'HIGH' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div><span className="text-[10px] font-black text-slate-500 uppercase">{p.confidence === 'HIGH' ? 'ÉLEVÉ' : 'MOYEN'}</span></div></div>
+    <div className="pb-32 px-5 max-w-2xl mx-auto pt-6">
+      <button onClick={() => navigate(-1)} className="p-3 bg-slate-900 rounded-2xl mb-6"><ChevronLeft size={20}/></button>
+      
+      <div className="bg-gradient-to-br from-[#0b1121] to-[#151c30] rounded-[2.5rem] p-8 border border-white/5 shadow-2xl mb-8">
+        <div className="flex justify-between items-center mb-10">
+          <div className="text-center w-2/5">
+            <img src={match.homeLogo} className="w-20 h-20 mx-auto object-contain mb-3" alt="home" />
+            <p className="text-xs font-black uppercase tracking-tighter text-white">{match.homeTeam}</p>
+          </div>
+          <div className="text-2xl font-black italic opacity-20 text-slate-600">VS</div>
+          <div className="text-center w-2/5">
+            <img src={match.awayLogo} className="w-20 h-20 mx-auto object-contain mb-3" alt="away" />
+            <p className="text-xs font-black uppercase tracking-tighter text-white">{match.awayTeam}</p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex flex-col items-center gap-4 py-10">
+            <Loader2 className="animate-spin text-orange-500" size={32} />
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Génération du Signal IA...</p>
+          </div>
+        ) : analysis && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-3">
+              {analysis.predictions.map((p, i) => (
+                <div key={i} className="bg-slate-950/60 p-5 rounded-2xl border border-white/5 flex justify-between items-center">
+                  <div>
+                    <p className="text-[9px] font-black text-slate-500 uppercase mb-1">{p.type}</p>
+                    <p className="text-sm font-black text-white">{p.recommendation}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-black text-blue-400">{p.probability}%</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase">PROBA</p>
+                  </div>
                 </div>
               ))}
             </div>
-            {data.vipInsight.detailedStats && (
-              <div className="bg-[#0b1121] p-8 rounded-[3rem] border border-white/5 space-y-6">
-                <div className="flex items-center gap-3"><Activity size={18} className="text-blue-400" /><span className="text-[12px] font-black text-white uppercase italic">INDICATEURS DE JEU IA</span></div>
-                <div className="grid grid-cols-1 gap-4">
-                  {[
-                    { label: 'CORNERS', value: data.vipInsight.detailedStats.corners, icon: <Goal size={14}/> },
-                    { label: 'CARTONS JAUNES', value: data.vipInsight.detailedStats.yellowCards, icon: <AlertTriangle size={14}/> },
-                    { label: 'HORS-JEU', value: data.vipInsight.detailedStats.offsides, icon: <Activity size={14}/> },
-                    { label: 'FAUTES', value: data.vipInsight.detailedStats.fouls, icon: <Activity size={14}/> },
-                    { label: 'TIRS TOTAUX', value: data.vipInsight.detailedStats.shots, icon: <Activity size={14}/> },
-                    { label: 'TIRS CADRÉS', value: data.vipInsight.detailedStats.shotsOnTarget, icon: <Target size={14}/> }
-                  ].map((stat, idx) => (
-                    <div key={idx} className="flex justify-between items-center py-3 border-b border-white/5 last:border-0">
-                      <div className="flex items-center gap-2.5"><span className="text-blue-400 opacity-50">{stat.icon}</span><span className="text-[10px] font-bold text-slate-500 uppercase">{stat.label}</span></div>
-                      <span className="text-xs font-black text-white italic">{stat.value}</span>
-                    </div>
-                  ))}
+            
+            <div className="bg-blue-500/5 p-6 rounded-2xl border border-blue-500/20">
+              <h4 className="text-[10px] font-black text-blue-400 uppercase mb-3 flex items-center gap-2"><Target size={14}/> Analyse Tactique</h4>
+              <p className="text-xs leading-relaxed text-slate-300 italic">{analysis.analysis}</p>
+            </div>
+
+            <div className="bg-orange-500/5 p-6 rounded-2xl border border-orange-500/20">
+              <h4 className="text-[10px] font-black text-orange-500 uppercase mb-3 flex items-center gap-2"><Crown size={14}/> VIP Insight</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[9px] font-black text-slate-500 uppercase mb-2">Scores Exacts</p>
+                  <div className="flex gap-2">
+                    {analysis.vipInsight.exactScores.map(s => <span key={s} className="bg-orange-500 text-slate-950 px-2 py-1 rounded-md text-[10px] font-black">{s}</span>)}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black text-slate-500 uppercase mb-2">Fait Majeur</p>
+                  <p className="text-[10px] text-white font-bold">{analysis.vipInsight.keyFact}</p>
                 </div>
               </div>
-            )}
-            <div className="bg-[#0b1121]/40 p-8 rounded-[3rem] border border-white/5 space-y-6">
-              <div className="flex items-center gap-3"><Target size={16} className="text-[#c18c32]" /><span className="text-[11px] font-black text-slate-400 uppercase italic">{S.vipInsight}</span></div>
-              <div className="grid grid-cols-2 gap-4">{data.vipInsight.exactScores.map((s, idx) => (<div key={idx} className="bg-[#151c30] text-white p-7 rounded-[2rem] text-center text-4xl font-black italic shadow-inner">{s}</div>))}</div>
             </div>
-            <div className="bg-[#0b1121] p-10 rounded-[3.5rem] border-l-8 border-blue-500 shadow-2xl relative"><span className="text-[10px] font-black uppercase text-slate-500 block mb-4 italic">{S.algoVerdict}</span><p className="text-[15px] text-slate-200 leading-relaxed font-bold italic uppercase">{data.analysis}</p></div>
           </div>
         )}
       </div>
@@ -317,24 +349,50 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
   );
 };
 
-const SettingsView: React.FC<any> = ({ language, setLanguage, isVip, setIsVip, userEmail }) => {
-  const [code, setCode] = useState('');
-  const S = STRINGS[language];
-  const checkCode = (val: string) => {
-    const trimmed = val.trim().toUpperCase(); setCode(trimmed);
-    if (trimmed === ADMIN_CODE || VALID_USER_CODES.has(trimmed)) {
-      setIsVip(true); if (userEmail) { localStorage.setItem(`btq_vip_status_${userEmail}`, 'true'); if (trimmed !== ADMIN_CODE) localStorage.setItem(`btq_vip_start_${userEmail}`, Date.now().toString()); }
-    }
-  };
+/* VipZoneView Fix: Implemented missing VipZoneView component */
+const VipZoneView: React.FC<any> = ({ matches, loading, language, isVip, selectedDate, onDateChange }) => {
+  const vipMatches = useMemo(() => matches.filter(isPopularMatch), [matches]);
+  const navigate = useNavigate();
 
   return (
-    <div className="p-6 pb-40 space-y-6 max-w-xl mx-auto">
-      <div className="bg-[#0b1121] p-8 rounded-[2.5rem] border border-white/5"><div className="flex items-center gap-4 mb-8"><UserCircle size={32} className="text-blue-400" /><div><p className="text-sm font-bold text-white truncate">{userEmail}</p></div></div>
-        <div className="space-y-4"><h2 className="text-[9px] font-black uppercase text-slate-600">Langue</h2><div className="flex gap-4">{['FR', 'EN'].map(l => (<button key={l} onClick={() => { setLanguage(l as Language); localStorage.setItem('lang', l); }} className={`flex-1 py-4 rounded-xl text-[10px] font-black border transition-all ${language === l ? 'bg-blue-600 border-blue-600 text-white' : 'bg-[#020617] border-white/5 text-slate-700'}`}>{l}</button>))}</div></div>
+    <div className="pb-32 px-5 max-w-2xl mx-auto pt-10">
+      <div className="flex items-center gap-3 mb-8">
+        <Crown size={32} className="text-[#c18c32]" />
+        <div>
+          <h2 className="text-2xl font-black uppercase italic text-white">Zone <span className="text-[#c18c32]">ELITE VIP</span></h2>
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Signaux Haute Confiance Uniquement</p>
+        </div>
       </div>
-      {!isVip ? (<div className="bg-[#0b1121] p-10 rounded-[3rem] border border-white/5 space-y-8 text-center relative overflow-hidden"><div className="absolute top-0 left-0 w-full h-1 bg-orange-500"></div><Crown size={48} className="text-orange-500 mx-auto" /><input type="text" value={code} onChange={(e) => checkCode(e.target.value)} placeholder={S.enterCode} className="w-full bg-[#020617] border border-white/10 rounded-2xl py-5 text-center font-black text-white uppercase outline-none" /><button onClick={() => window.open(PAYMENT_LINK, '_blank')} className="w-full bg-orange-500 text-slate-950 font-black py-5 rounded-2xl text-[11px] uppercase">ACTIVER MON PASS VIP (30J)</button></div>) 
-      : (<div className="bg-[#c18c32]/5 p-12 rounded-[3.5rem] border border-[#c18c32]/20 text-center shadow-2xl"><CheckCircle2 size={48} className="text-[#c18c32] mx-auto mb-4" /><span className="text-3xl font-black text-white italic block uppercase">PASS VIP ACTIF</span></div>)}
-      <button onClick={() => signOut(auth)} className="w-full bg-rose-500/5 p-7 rounded-[2.5rem] border border-rose-500/10 flex items-center justify-center gap-4 text-rose-500 uppercase font-black text-xs italic"><LogOut size={22} />Déconnexion</button>
+
+      <div className="flex gap-2 overflow-x-auto no-scrollbar mb-8">
+        {[0,1,2,3,4,5,6,7].map(i => {
+          const d = new Date(); d.setDate(d.getDate() + i);
+          const iso = d.toISOString().split('T')[0];
+          return (
+            <button key={iso} onClick={() => onDateChange(iso)} className={`flex-shrink-0 min-w-[3.5rem] py-3 rounded-2xl border flex flex-col items-center gap-0.5 transition-all ${iso === selectedDate ? 'bg-[#c18c32] border-[#c18c32] text-slate-950' : 'bg-[#0b1121] border-white/5 text-slate-500'}`}>
+              <span className="text-[7px] font-black uppercase">{d.toLocaleDateString('fr-FR', { weekday: 'short' })}</span>
+              <span className="text-xs font-black">{d.getDate()}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="space-y-4">
+        {loading ? (
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-orange-500" /></div>
+        ) : vipMatches.length > 0 ? (
+          vipMatches.map(m => (
+            <VipSafeCard key={m.id} match={m} isLocked={!isVip} onClick={() => {
+              if (!isVip) navigate('/settings');
+              else navigate(`/match/${m.id}`, { state: { match: m, forceLock: true } });
+            }} />
+          ))
+        ) : (
+          <div className="text-center py-20 bg-[#0b1121] rounded-[2.5rem] border border-dashed border-white/5">
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Aucun match élite aujourd'hui</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -359,18 +417,17 @@ const App: React.FC = () => {
             setIsVip(false); localStorage.setItem(`btq_vip_status_${u.email}`, 'false');
           } else setIsVip(true);
         } else setIsVip(false);
-      } else setIsVip(false);
+      }
       setAuthLoading(false);
     });
     return () => unsub();
   }, []);
 
   const fetchMatches = async (date: string) => {
-    setLoading(true); 
-    try { 
+    setLoading(true); try { 
       const data = await fetchMatchesByDate(date); 
       setMatches(data.map(m => ({ id: m.match_id, league: m.league_name, league_id: m.league_id, homeTeam: m.match_hometeam_name, awayTeam: m.match_awayteam_name, homeLogo: m.team_home_badge, awayLogo: m.team_away_badge, time: m.match_time, status: m.match_status, country_name: m.country_name, stats: { homeForm: [], awayForm: [], homeRank: 0, awayRank: 0, h2h: '' }, predictions: [] }))); 
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+    } catch (e) {} finally { setLoading(false); }
   };
 
   useEffect(() => { if (user) fetchMatches(selectedDate); }, [selectedDate, user]);
@@ -389,14 +446,14 @@ const App: React.FC = () => {
       </Routes>
 
       <nav className="fixed bottom-6 left-6 right-6 bg-[#0b1121]/95 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] py-3 flex items-center justify-around z-50 shadow-2xl">
-        <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400"><LayoutGrid size={22} /><span className="text-[8px] font-black uppercase">DIRECT</span></Link>
+        <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400 transition-colors"><LayoutGrid size={22} /><span className="text-[8px] font-black uppercase">DIRECT</span></Link>
         <Link to="/vip" className="flex flex-col items-center group relative px-4">
-          <div className={`${isVip ? 'bg-[#c18c32] shadow-[#c18c32]/20' : 'bg-orange-500 shadow-orange-500/20'} p-3.5 rounded-full -mt-12 border-[6px] border-[#020617] shadow-xl group-active:scale-90 transition-transform`}>
+          <div className={`${isVip ? 'bg-[#c18c32] shadow-[#c18c32]/20' : 'bg-orange-500 shadow-orange-500/20'} p-3.5 rounded-full -mt-12 border-[6px] border-[#020617] shadow-xl transition-transform`}>
             {isVip ? <Crown size={26} className="text-slate-950" /> : <Lock size={24} className="text-slate-950" />}
           </div>
           <span className={`text-[9px] font-black mt-1.5 uppercase italic tracking-widest ${isVip ? 'text-[#c18c32]' : 'text-orange-500'}`}>VIP</span>
         </Link>
-        <Link to="/settings" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400"><Settings size={22} /><span className="text-[8px] font-black uppercase">RÉGLAGES</span></Link>
+        <Link to="/settings" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400 transition-colors"><Settings size={22} /><span className="text-[8px] font-black uppercase">RÉGLAGES</span></Link>
       </nav>
     </div>
   );

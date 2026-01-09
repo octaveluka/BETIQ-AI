@@ -37,7 +37,6 @@ export async function fetchMatchesByDate(date: string): Promise<ApiMatch[]> {
     const data = await response.json();
     if (data.error || !Array.isArray(data)) return [];
     
-    // Filtres exhaustifs basés sur les mots-clés demandés
     const Keywords = [
       'Champions League', 'Europa League', 'Conference League', 'Libertadores', 
       'CAF Champions', 'CONCACAF', 'FIFA Club World Cup', 'Premier League',
@@ -57,7 +56,6 @@ export async function fetchMatchesByDate(date: string): Promise<ApiMatch[]> {
       const isAfrican = africanKeywords.some(key => name.includes(key.toLowerCase()) || country.includes(key.toLowerCase()));
       const isMajorCountry = ['England', 'Spain', 'Italy', 'Germany', 'France', 'Brazil', 'Mexico', 'USA', 'Portugal', 'Netherlands'].includes(m.country_name);
       
-      // ID 28 est souvent la CAN dans cette API
       return isRequested || isAfrican || isMajorCountry || m.league_id === '28';
     });
 
