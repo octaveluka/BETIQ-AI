@@ -1,16 +1,16 @@
 
 import React from 'react';
-import { FootballMatch } from '../types';
+import { FootballMatch, Language } from '../types';
 import { ChevronRight } from 'lucide-react';
 
 interface Props {
   match: FootballMatch;
   isLocked: boolean;
+  lang: Language;
   onClick: () => void;
 }
 
-export const VipSafeCard: React.FC<Props> = ({ match, isLocked, onClick }) => {
-  const lang = localStorage.getItem('lang') || 'FR';
+export const VipSafeCard: React.FC<Props> = ({ match, isLocked, lang, onClick }) => {
   return (
     <div 
       onClick={onClick}
@@ -28,7 +28,9 @@ export const VipSafeCard: React.FC<Props> = ({ match, isLocked, onClick }) => {
         
         <div>
           <h4 className="text-white font-bold text-base tracking-tight">{match.homeTeam} - {match.awayTeam}</h4>
-          <p className="text-[#c18c32] text-[10px] font-black uppercase tracking-[0.15em] mt-0.5">{lang === 'FR' ? 'CONFIANCE MAX' : 'MAX CONFIDENCE'}</p>
+          <p className="text-[#c18c32] text-[10px] font-black uppercase tracking-[0.15em] mt-0.5">
+            {lang === 'FR' ? 'CONFIANCE MAX' : 'MAX CONFIDENCE'}
+          </p>
         </div>
       </div>
       

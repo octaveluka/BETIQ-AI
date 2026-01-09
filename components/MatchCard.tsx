@@ -1,18 +1,18 @@
 
 import React from 'react';
-import { FootballMatch } from '../types';
+import { FootballMatch, Language } from '../types';
 import { Crown, Lock, Zap, ShieldCheck, Shield } from 'lucide-react';
 
 interface Props {
   match: FootballMatch;
   isVipUser: boolean;
   forceLock?: boolean;
+  lang: Language;
   onClick: (match: FootballMatch) => void;
 }
 
-export const MatchCard: React.FC<Props> = ({ match, isVipUser, forceLock = false, onClick }) => {
+export const MatchCard: React.FC<Props> = ({ match, isVipUser, forceLock = false, lang, onClick }) => {
   const isActuallyLocked = forceLock && !isVipUser;
-  const lang = localStorage.getItem('lang') || 'FR';
 
   return (
     <div 
@@ -42,7 +42,6 @@ export const MatchCard: React.FC<Props> = ({ match, isVipUser, forceLock = false
               src={match.homeLogo} 
               className="max-w-full max-h-full mx-auto object-contain drop-shadow-2xl group-hover:scale-110 transition-transform" 
               alt="home" 
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
             <Shield size={24} className="absolute text-slate-700 -z-10" />
           </div>
@@ -57,7 +56,6 @@ export const MatchCard: React.FC<Props> = ({ match, isVipUser, forceLock = false
               src={match.awayLogo} 
               className="max-w-full max-h-full mx-auto object-contain drop-shadow-2xl group-hover:scale-110 transition-transform" 
               alt="away" 
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
             <Shield size={24} className="absolute text-slate-700 -z-10" />
           </div>

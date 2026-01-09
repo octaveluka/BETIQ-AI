@@ -50,11 +50,11 @@ const DICTIONARY = {
     verify: "VÉRIFIER",
     logout: "Se déconnecter",
     vipActive: "ABONNEMENT ELITE ACTIF",
-    loadingAi: "Génération du Signal IA...",
-    tacticalAnalysis: "Analyse Tactique",
-    advancedSignals: "Signaux Avancés",
-    probableScorers: "Buteurs Probables",
-    googleSources: "Sources Google Search (Grounding)",
+    loadingAi: "Génération du Signal IA Exact...",
+    tacticalAnalysis: "Analyse Tactique Réelle",
+    advancedSignals: "Signaux Vérifiés",
+    probableScorers: "Buteurs (Lineups Réels)",
+    googleSources: "Sources de Vérification Google",
     iaUnlocked: "ANALYSE IA DÉBLOQUÉE",
     noMatches: "Aucun match trouvé pour ce jour/ligue",
     all: "Tous",
@@ -64,7 +64,12 @@ const DICTIONARY = {
     login: "Connexion",
     register: "S'inscrire",
     newUser: "Nouveau ? Créer un compte",
-    alreadyMember: "Déjà membre ? Se connecter"
+    alreadyMember: "Déjà membre ? Se connecter",
+    navFree: "GRATUIT",
+    navVip: "VIP",
+    navSettings: "RÉGLAGES",
+    maxConfidence: "CONFIANCE MAX",
+    probaLabel: "PROBA"
   },
   EN: {
     freeTitle: "FREE PREDICTIONS",
@@ -81,11 +86,11 @@ const DICTIONARY = {
     verify: "VERIFY",
     logout: "Log Out",
     vipActive: "ELITE SUBSCRIPTION ACTIVE",
-    loadingAi: "Generating AI Signal...",
-    tacticalAnalysis: "Tactical Analysis",
-    advancedSignals: "Advanced Signals",
-    probableScorers: "Probable Scorers",
-    googleSources: "Google Search Sources (Grounding)",
+    loadingAi: "Generating Exact AI Signal...",
+    tacticalAnalysis: "Real Tactical Analysis",
+    advancedSignals: "Verified Signals",
+    probableScorers: "Scorers (Real Lineups)",
+    googleSources: "Google Verification Sources",
     iaUnlocked: "AI ANALYSIS UNLOCKED",
     noMatches: "No matches found for this day/league",
     all: "All",
@@ -95,7 +100,12 @@ const DICTIONARY = {
     login: "Login",
     register: "Register",
     newUser: "New here? Create an account",
-    alreadyMember: "Already a member? Login"
+    alreadyMember: "Already a member? Login",
+    navFree: "FREE",
+    navVip: "VIP",
+    navSettings: "SETTINGS",
+    maxConfidence: "MAX CONFIDENCE",
+    probaLabel: "PROB"
   }
 };
 
@@ -193,7 +203,7 @@ const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onD
       <header className="flex items-center gap-3 mb-8">
         <Crown size={32} className="text-[#c18c32]" />
         <div>
-          <h2 className="text-2xl font-black uppercase italic text-white">{t.vipTitle.split(' ')[0]} <span className="text-[#c18c32]">{t.vipTitle.split(' ').slice(1).join(' ')}</span></h2>
+          <h2 className="text-2xl font-black uppercase italic text-white">{t.vipTitle}</h2>
           <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">{t.vipSubtitle}</p>
         </div>
       </header>
@@ -229,7 +239,7 @@ const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onD
           </div>
           <div className="space-y-3">
             {loading ? <div className="flex justify-center"><Loader2 className="animate-spin text-orange-500" /></div> : dailySelections.map(m => (
-              <VipSafeCard key={m.id} match={m} isLocked={!isVip} onClick={() => {
+              <VipSafeCard key={m.id} match={m} isLocked={!isVip} lang={lang} onClick={() => {
                 if (!isVip) navigate('/settings');
                 else navigate(`/match/${m.id}`, { state: { match: m } });
               }} />
@@ -248,6 +258,7 @@ const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onD
               match={m} 
               isVipUser={isVip} 
               forceLock={true} 
+              lang={lang}
               onClick={(match) => {
                 if (!isVip) navigate('/settings');
                 else navigate(`/match/${match.id}`, { state: { match } });
@@ -380,7 +391,7 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-black text-blue-400">{p.probability}%</p>
-                    <p className="text-[8px] font-black text-slate-500 uppercase">PROBA</p>
+                    <p className="text-[8px] font-black text-slate-500 uppercase">{t.probaLabel}</p>
                   </div>
                 </div>
               ))}
@@ -518,17 +529,17 @@ const App: React.FC = () => {
       <nav className="fixed bottom-6 left-6 right-6 bg-[#0b1121]/95 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] py-3 flex items-center justify-around z-50 shadow-2xl">
         {!isVip && (
           <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400 transition-colors">
-            <LayoutGrid size={22} /><span className="text-[7px] font-black uppercase">{t.all === 'Tous' ? 'GRATUIT' : 'FREE'}</span>
+            <LayoutGrid size={22} /><span className="text-[7px] font-black uppercase">{t.navFree}</span>
           </Link>
         )}
         <Link to="/vip" className="flex flex-col items-center group relative px-4">
           <div className={`${isVip ? 'bg-[#c18c32] shadow-[#c18c32]/20' : 'bg-orange-500 shadow-orange-500/20'} p-3.5 rounded-full -mt-12 border-[6px] border-[#020617] shadow-xl transition-transform`}>
             {isVip ? <Crown size={26} className="text-slate-950" /> : <Lock size={24} className="text-slate-950" />}
           </div>
-          <span className={`text-[8px] font-black mt-1.5 uppercase italic tracking-widest ${isVip ? 'text-[#c18c32]' : 'text-orange-500'}`}>VIP</span>
+          <span className={`text-[8px] font-black mt-1.5 uppercase italic tracking-widest ${isVip ? 'text-[#c18c32]' : 'text-orange-500'}`}>{t.navVip}</span>
         </Link>
         <Link to="/settings" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400 transition-colors">
-          <Settings size={22} /><span className="text-[7px] font-black uppercase">{language === 'FR' ? 'RÉGLAGES' : 'SETTINGS'}</span>
+          <Settings size={22} /><span className="text-[7px] font-black uppercase">{t.navSettings}</span>
         </Link>
       </nav>
     </div>
