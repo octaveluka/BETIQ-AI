@@ -1,4 +1,3 @@
-
 export enum Confidence {
   LOW = 'LOW',
   MEDIUM = 'MEDIUM',
@@ -62,6 +61,7 @@ export interface FootballMatch {
   id: string;
   league: string;
   league_id?: string;
+  country_name?: string;
   homeTeam: string;
   awayTeam: string;
   homeLogo: string;

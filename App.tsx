@@ -13,7 +13,7 @@ import {
   Crown, Lock, LayoutGrid, Settings, ChevronLeft, Search,
   Loader2, RefreshCw, Zap, BrainCircuit, CheckCircle2,
   LogOut, UserCircle, Target, Activity, AlertCircle, Goal, AlertTriangle,
-  Share2, TrendingUp, Globe, Trophy, Info
+  Share2, TrendingUp, Globe, Trophy
 } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
@@ -27,7 +27,7 @@ import { FootballMatch, Confidence, Language, BetType, TeamStats } from './types
 import { MatchCard } from './components/MatchCard';
 import { VipSafeCard } from './components/VipSafeCard';
 import { generatePredictionsAndAnalysis, AnalysisResult } from './services/geminiService';
-import { fetchMatchesByDate, fetchStandings } from './services/footballApiService';
+import { fetchMatchesByDate } from './services/footballApiService';
 
 const ADMIN_CODE = "20202020";
 const PAYMENT_LINK = "https://bsbxsvng.mychariow.shop/prd_g3zdgh/checkout";
@@ -36,15 +36,11 @@ const VALID_CODES_ARRAY = [
   "BETIQ-5", "BETIQ-24", "BETIQ-55", "BETIQ-98", "BETIQ-153", "BETIQ-220", "BETIQ-299", "BETIQ-390", "BETIQ-493", "BETIQ-608", "BETIQ-735", "BETIQ-874", "BETIQ-1025", "BETIQ-1188", "BETIQ-1363", "BETIQ-1550", "BETIQ-1749", "BETIQ-1960", "BETIQ-2183", "BETIQ-2418", "BETIQ-2665", "BETIQ-2924", "BETIQ-3195", "BETIQ-3478", "BETIQ-3773", "BETIQ-4080", "BETIQ-4399", "BETIQ-4730", "BETIQ-5073", "BETIQ-5428", "BETIQ-5795", "BETIQ-6174", "BETIQ-6565", "BETIQ-6968", "BETIQ-7383", "BETIQ-7810", "BETIQ-8249", "BETIQ-8700", "BETIQ-9163", "BETIQ-9638", "BETIQ-10125", "BETIQ-10624", "BETIQ-11135", "BETIQ-11658", "BETIQ-12193", "BETIQ-12740", "BETIQ-13299", "BETIQ-13870", "BETIQ-14453", "BETIQ-15048", "BETIQ-15655", "BETIQ-16274", "BETIQ-16905", "BETIQ-17548", "BETIQ-18203", "BETIQ-18870", "BETIQ-19549", "BETIQ-20240", "BETIQ-20943", "BETIQ-21658", "BETIQ-22385", "BETIQ-23124", "BETIQ-23875", "BETIQ-24638", "BETIQ-25413", "BETIQ-26200", "BETIQ-26999", "BETIQ-27810", "BETIQ-28633", "BETIQ-29468", "BETIQ-30315", "BETIQ-31174", "BETIQ-32045", "BETIQ-32928", "BETIQ-33823", "BETIQ-34730", "BETIQ-35649", "BETIQ-36580", "BETIQ-37523", "BETIQ-38478", "BETIQ-39445", "BETIQ-40424", "BETIQ-41415", "BETIQ-42418", "BETIQ-43433", "BETIQ-44460", "BETIQ-45499", "BETIQ-46550", "BETIQ-47613", "BETIQ-48688", "BETIQ-49775", "BETIQ-50874", "BETIQ-51985", "BETIQ-53108", "BETIQ-54243", "BETIQ-55390", "BETIQ-56549", "BETIQ-57720", "BETIQ-58903", "BETIQ-60098", "BETIQ-61305", "BETIQ-62524", "BETIQ-63755", "BETIQ-64998", "BETIQ-66253", "BETIQ-67520", "BETIQ-68799", "BETIQ-70090", "BETIQ-71393", "BETIQ-72708", "BETIQ-74035", "BETIQ-75374", "BETIQ-76725", "BETIQ-78088", "BETIQ-79463", "BETIQ-80850", "BETIQ-82249", "BETIQ-83660", "BETIQ-85083", "BETIQ-86518", "BETIQ-87965", "BETIQ-89424", "BETIQ-90895", "BETIQ-92378", "BETIQ-93873", "BETIQ-95380", "BETIQ-96899", "BETIQ-98430", "BETIQ-99973", "BETIQ-101528", "BETIQ-103095", "BETIQ-104674", "BETIQ-106265", "BETIQ-107868", "BETIQ-109483", "BETIQ-111110", "BETIQ-112749", "BETIQ-114400", "BETIQ-116063", "BETIQ-117738", "BETIQ-119425", "BETIQ-121124", "BETIQ-122835", "BETIQ-124558", "BETIQ-126293", "BETIQ-128040", "BETIQ-129799", "BETIQ-131570", "BETIQ-133353", "BETIQ-135148", "BETIQ-136955", "BETIQ-138774", "BETIQ-140605", "BETIQ-142448", "BETIQ-144303", "BETIQ-146170", "BETIQ-148049", "BETIQ-149940", "BETIQ-151843", "BETIQ-153758", "BETIQ-155685", "BETIQ-157624", "BETIQ-159575", "BETIQ-138774", "BETIQ-26462098"
 ];
 
-const TOP_5_LEAGUE_IDS = ['152', '302', '207', '175', '168']; 
-const CAN_LEAGUE_IDS = ['28', 'CAF']; 
-
 const VALID_USER_CODES = new Set(VALID_CODES_ARRAY);
 
 const STRINGS: Record<Language, any> = {
   FR: {
     loading: "ANALYSE SIGNAL IA...",
-    error: "Erreur IA fondamentale",
     vipTitle: "PRONOSTICS ELITE",
     topVip: "CONFIANCE MAX",
     vipInsight: "SCORES EXACTS (VIP)",
@@ -54,7 +50,6 @@ const STRINGS: Record<Language, any> = {
   },
   EN: {
     loading: "AI SIGNAL PROCESSING...",
-    error: "AI Analysis Error",
     vipTitle: "TOP ELITE PREDICTIONS",
     topVip: "MAX CONFIDENCE",
     vipInsight: "EXACT SCORES (VIP)",
@@ -142,6 +137,14 @@ const PredictionsView: React.FC<any> = ({ matches, loading, language, isVip, sel
   const vipHome = useMemo(() => filtered.filter(isPopularMatch).slice(0, 2), [filtered]);
   const freeHome = useMemo(() => filtered.filter(m => !isPopularMatch(m)).slice(0, 3), [filtered]);
 
+  const handleMatchClick = (m: FootballMatch, locked: boolean) => {
+    if (locked && !isVip) {
+      navigate('/settings');
+      return;
+    }
+    navigate(`/match/${m.id}`, { state: { match: m, forceLock: locked } });
+  };
+
   return (
     <div className="pb-32 px-5 max-w-2xl mx-auto">
       <header className="flex items-center justify-between py-8">
@@ -154,10 +157,10 @@ const PredictionsView: React.FC<any> = ({ matches, loading, language, isVip, sel
       </div>
       <div className="space-y-10">
         <section className="space-y-4"><div className="flex items-center gap-2"><Crown size={14} className="text-orange-500" /><h3 className="text-[10px] font-black text-slate-500 uppercase italic">MATCHS ELITE VIP</h3></div>
-          <div className="grid grid-cols-1 gap-4">{vipHome.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={!isVip} onClick={(m) => navigate(`/match/${m.id}`, { state: { match: m, forceLock: !isVip } })} />))}</div>
+          <div className="grid grid-cols-1 gap-4">{vipHome.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={true} onClick={(m) => handleMatchClick(m, true)} />))}</div>
         </section>
         <section className="space-y-4"><div className="flex items-center gap-2"><Zap size={14} className="text-blue-400" /><h3 className="text-[10px] font-black text-slate-500 uppercase italic">ANALYSES GRATUITES</h3></div>
-          <div className="grid grid-cols-1 gap-4">{freeHome.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={false} onClick={(m) => navigate(`/match/${m.id}`, { state: { match: m, forceLock: false } })} />))}</div>
+          <div className="grid grid-cols-1 gap-4">{freeHome.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={false} onClick={(m) => handleMatchClick(m, false)} />))}</div>
         </section>
       </div>
     </div>
@@ -169,16 +172,25 @@ const VipZoneView: React.FC<any> = ({ matches, loading, language, isVip, selecte
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLeagueType, setSelectedLeagueType] = useState('all');
   const S = STRINGS[language];
+
   const filtered = useMemo(() => {
     let base = matches.filter(m => m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) || m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase()));
-    if (selectedLeagueType === 'top5') return base.filter(m => m.league_id && TOP_5_LEAGUE_IDS.includes(m.league_id));
+    if (selectedLeagueType === 'top5') return base.filter(m => m.league_id && ['152', '302', '207', '175', '168'].includes(m.league_id));
     if (selectedLeagueType === 'can') return base.filter(m => m.league_id === '28' || m.league.toLowerCase().includes('africa cup') || m.league.toLowerCase().includes('can') || m.country_name === 'Africa');
-    if (selectedLeagueType === 'others') return base.filter(m => m.league_id && !TOP_5_LEAGUE_IDS.includes(m.league_id) && m.league_id !== '28');
+    if (selectedLeagueType === 'others') return base.filter(m => m.league_id && !['152', '302', '207', '175', '168'].includes(m.league_id) && m.league_id !== '28');
     return base;
   }, [matches, searchTerm, selectedLeagueType]);
 
   const winners3 = useMemo(() => filtered.filter(isPopularMatch).slice(0, 3), [filtered]);
   const others = useMemo(() => filtered.filter(m => !winners3.some(t => t.id === m.id)), [filtered, winners3]);
+
+  const handleMatchClick = (m: FootballMatch, locked: boolean) => {
+    if (locked && !isVip) {
+      navigate('/settings');
+      return;
+    }
+    navigate(`/match/${m.id}`, { state: { match: m, forceLock: locked } });
+  };
 
   return (
     <div className="p-5 pb-32 max-w-2xl mx-auto space-y-6">
@@ -190,8 +202,8 @@ const VipZoneView: React.FC<any> = ({ matches, loading, language, isVip, selecte
       </div>
       {loading ? (<div className="py-24 text-center"><Loader2 className="animate-spin text-orange-500 mx-auto" size={40} /></div>) : (
         <div className="space-y-12">
-          <section className="space-y-5"><h3 className="text-[11px] font-black text-orange-500 uppercase italic">CONFIANCE MAX</h3><div className="space-y-4">{winners3.map(m => (<VipSafeCard key={m.id} match={m} isLocked={!isVip} onClick={() => navigate(`/match/${m.id}`, { state: { match: m, forceLock: !isVip } })} />))}</div></section>
-          <section className="space-y-5"><h3 className="text-[11px] font-black text-slate-600 uppercase italic">LISTE COMPLÈTE</h3><div className="grid grid-cols-1 gap-5">{others.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={!isVip} onClick={(m) => navigate(`/match/${m.id}`, { state: { match: m, forceLock: !isVip } })} />))}</div></section>
+          <section className="space-y-5"><h3 className="text-[11px] font-black text-orange-500 uppercase italic">CONFIANCE MAX</h3><div className="space-y-4">{winners3.map(m => (<VipSafeCard key={m.id} match={m} isLocked={!isVip} onClick={() => handleMatchClick(m, true)} />))}</div></section>
+          <section className="space-y-5"><h3 className="text-[11px] font-black text-slate-600 uppercase italic">LISTE COMPLÈTE</h3><div className="grid grid-cols-1 gap-5">{others.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={true} onClick={(m) => handleMatchClick(m, true)} />))}</div></section>
         </div>
       )}
       {!isVip && (<div className="mt-8 bg-[#0b1121] border border-orange-500/20 p-10 rounded-[3rem] text-center space-y-6"><Lock size={40} className="text-orange-500 mx-auto" /><p className="text-xs font-bold text-slate-300 italic uppercase">Scores exacts, Corners et Buteurs Élite.</p><button onClick={() => navigate('/settings')} className="w-full bg-orange-500 text-slate-950 font-black py-5 rounded-2xl text-[11px] uppercase">PASSER VIP</button></div>)}
@@ -241,7 +253,6 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
               ))}
             </div>
 
-            {/* Statistiques Détaillées IA */}
             {data.vipInsight.detailedStats && (
               <div className="bg-[#0b1121] p-8 rounded-[3rem] border border-white/5 space-y-6">
                 <div className="flex items-center gap-3"><Activity size={18} className="text-blue-400" /><span className="text-[12px] font-black text-white uppercase italic">INDICATEURS DE JEU IA</span></div>
@@ -278,9 +289,7 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
 
             <div className="bg-[#0b1121]/40 p-8 rounded-[3rem] border border-white/5 space-y-6">
               <div className="flex items-center gap-3"><Target size={16} className="text-[#c18c32]" /><span className="text-[11px] font-black text-slate-400 uppercase italic">{S.vipInsight}</span></div>
-              {(forcedLock && !isVip) ? (
-                 <div className="bg-slate-950/60 p-10 rounded-[2.5rem] border border-orange-500/10 text-center space-y-4"><Lock size={32} className="text-orange-500 mx-auto" /><button onClick={() => navigate('/settings')} className="bg-[#c18c32] text-slate-950 px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase">Activer Elite</button></div>
-              ) : (<div className="grid grid-cols-2 gap-4">{data.vipInsight.exactScores.map((s, idx) => (<div key={idx} className="bg-[#151c30] text-white p-7 rounded-[2rem] text-center text-4xl font-black italic shadow-inner">{s}</div>))}</div>)}
+              <div className="grid grid-cols-2 gap-4">{data.vipInsight.exactScores.map((s, idx) => (<div key={idx} className="bg-[#151c30] text-white p-7 rounded-[2rem] text-center text-4xl font-black italic shadow-inner">{s}</div>))}</div>
             </div>
             <div className="bg-[#0b1121] p-10 rounded-[3.5rem] border-l-8 border-blue-500 shadow-2xl relative"><span className="text-[10px] font-black uppercase text-slate-500 block mb-4 italic">{S.algoVerdict}</span><p className="text-[15px] text-slate-200 leading-relaxed font-bold italic uppercase">{data.analysis}</p></div>
           </div>
@@ -292,6 +301,7 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
 
 const SettingsView: React.FC<any> = ({ language, setLanguage, isVip, setIsVip, userEmail }) => {
   const [code, setCode] = useState('');
+  const S = STRINGS[language];
   const checkCode = (val: string) => {
     const trimmed = val.trim().toUpperCase(); setCode(trimmed);
     if (trimmed === ADMIN_CODE || VALID_USER_CODES.has(trimmed)) {
@@ -304,7 +314,7 @@ const SettingsView: React.FC<any> = ({ language, setLanguage, isVip, setIsVip, u
       <div className="bg-[#0b1121] p-8 rounded-[2.5rem] border border-white/5"><div className="flex items-center gap-4 mb-8"><UserCircle size={32} className="text-blue-400" /><div><p className="text-sm font-bold text-white truncate">{userEmail}</p></div></div>
         <div className="space-y-4"><h2 className="text-[9px] font-black uppercase text-slate-600">Langue</h2><div className="flex gap-4">{['FR', 'EN'].map(l => (<button key={l} onClick={() => { setLanguage(l as Language); localStorage.setItem('lang', l); }} className={`flex-1 py-4 rounded-xl text-[10px] font-black border transition-all ${language === l ? 'bg-blue-600 border-blue-600 text-white' : 'bg-[#020617] border-white/5 text-slate-700'}`}>{l}</button>))}</div></div>
       </div>
-      {!isVip ? (<div className="bg-[#0b1121] p-10 rounded-[3rem] border border-white/5 space-y-8 text-center relative overflow-hidden"><div className="absolute top-0 left-0 w-full h-1 bg-orange-500"></div><Crown size={48} className="text-orange-500 mx-auto" /><input type="text" value={code} onChange={(e) => checkCode(e.target.value)} placeholder="Code d'activation..." className="w-full bg-[#020617] border border-white/10 rounded-2xl py-5 text-center font-black text-white uppercase outline-none" /><button onClick={() => window.open(PAYMENT_LINK, '_blank')} className="w-full bg-orange-500 text-slate-950 font-black py-5 rounded-2xl text-[11px] uppercase">ACTIVER MON PASS VIP (30J)</button></div>) 
+      {!isVip ? (<div className="bg-[#0b1121] p-10 rounded-[3rem] border border-white/5 space-y-8 text-center relative overflow-hidden"><div className="absolute top-0 left-0 w-full h-1 bg-orange-500"></div><Crown size={48} className="text-orange-500 mx-auto" /><input type="text" value={code} onChange={(e) => checkCode(e.target.value)} placeholder={S.enterCode} className="w-full bg-[#020617] border border-white/10 rounded-2xl py-5 text-center font-black text-white uppercase outline-none" /><button onClick={() => window.open(PAYMENT_LINK, '_blank')} className="w-full bg-orange-500 text-slate-950 font-black py-5 rounded-2xl text-[11px] uppercase">ACTIVER MON PASS VIP (30J)</button></div>) 
       : (<div className="bg-[#c18c32]/5 p-12 rounded-[3.5rem] border border-[#c18c32]/20 text-center shadow-2xl"><CheckCircle2 size={48} className="text-[#c18c32] mx-auto mb-4" /><span className="text-3xl font-black text-white italic block uppercase">PASS VIP ACTIF</span></div>)}
       <button onClick={() => signOut(auth)} className="w-full bg-rose-500/5 p-7 rounded-[2.5rem] border border-rose-500/10 flex items-center justify-center gap-4 text-rose-500 uppercase font-black text-xs italic"><LogOut size={22} />Déconnexion</button>
     </div>
@@ -319,7 +329,6 @@ const App: React.FC = () => {
   const [matches, setMatches] = useState<FootballMatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const location = useLocation();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -339,7 +348,7 @@ const App: React.FC = () => {
   }, []);
 
   const fetchMatches = async (date: string) => {
-    setLoading(true); try { const data = await fetchMatchesByDate(date); setMatches(data.map(m => ({ id: m.match_id, league: m.league_name, league_id: m.league_id, homeTeam: m.match_hometeam_name, awayTeam: m.match_awayteam_name, homeLogo: m.team_home_badge, awayLogo: m.team_away_badge, time: m.match_time, status: m.match_status, stats: { homeForm: [], awayForm: [], homeRank: 0, awayRank: 0, h2h: '' }, predictions: [] }))); } catch (e) {} finally { setLoading(false); }
+    setLoading(true); try { const data = await fetchMatchesByDate(date); setMatches(data.map(m => ({ id: m.match_id, league: m.league_name, league_id: m.league_id, homeTeam: m.match_hometeam_name, awayTeam: m.match_awayteam_name, homeLogo: m.team_home_badge, awayLogo: m.team_away_badge, time: m.match_time, status: m.match_status, country_name: m.country_name, stats: { homeForm: [], awayForm: [], homeRank: 0, awayRank: 0, h2h: '' }, predictions: [] }))); } catch (e) {} finally { setLoading(false); }
   };
 
   useEffect(() => { if (user) fetchMatches(selectedDate); }, [selectedDate, user]);
@@ -358,6 +367,7 @@ const App: React.FC = () => {
       </Routes>
 
       <nav className="fixed bottom-6 left-6 right-6 bg-[#0b1121]/95 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] py-3 flex items-center justify-around z-50 shadow-2xl">
+        {/* Standard User sees DIRECT, VIP User ONLY sees VIP & SETTINGS */}
         {!isVip && (
           <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400"><LayoutGrid size={22} /><span className="text-[8px] font-black uppercase">DIRECT</span></Link>
         )}

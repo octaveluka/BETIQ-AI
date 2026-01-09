@@ -8,44 +8,40 @@ export interface AnalysisResult {
   sources: { title: string; uri: string }[];
 }
 
-const BIG_LEAGUES_IDS = ['152', '302', '207', '175', '168', '3', '28'];
-
 export async function generatePredictionsAndAnalysis(match: FootballMatch, language: string): Promise<AnalysisResult> {
+  // Utilisation de gemini-3-flash-preview pour une génération JSON plus stable et rapide
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const isBigLeague = match.league_id && BIG_LEAGUES_IDS.includes(match.league_id);
   
   const prompt = `
-    RÔLE : Expert Analyste Data Football (Style Professionnel).
+    RÔLE : Analyste Expert Data Football (Style Signal IA Professionnel).
     MATCH : ${match.homeTeam} vs ${match.awayTeam} (${match.league}).
     LANGUE : ${language}.
 
-    TACHE : Génère une analyse fondamentale et des probabilités en JSON.
-    RÈGLES : 
-    1. Predictions : Toujours inclure 1X2, O/U 2.5, et BTTS.
-    2. Statistiques détaillées (OBLIGATOIRE si match majeur) : Corners, Cartons jaunes, Hors-jeu, Fautes, Tirs totaux, Tirs cadrés.
-    3. Buteurs : Liste les joueurs avec probabilité.
-    4. Format : Répondre UNIQUEMENT avec le JSON, pas de texte autour.
+    TACHE : Génère une analyse fondamentale et des probabilités précises.
+    IMPORTANT : Tu dois fournir des statistiques détaillées (Corners, Cartons, Hors-jeu, Fautes, Tirs, Tirs cadrés) avec des probabilités en pourcentage.
+    
+    FORMAT : Répondre UNIQUEMENT avec un objet JSON valide.
 
-    STRUCTURE JSON ATTENDUE :
+    STRUCTURE JSON :
     {
       "predictions": [
-        {"type": "1X2", "recommendation": "Manchester City", "probability": 75, "confidence": "HIGH", "odds": 1.5},
+        {"type": "1X2", "recommendation": "Nom de l'équipe", "probability": 75, "confidence": "HIGH", "odds": 1.5},
         {"type": "O/U 2.5", "recommendation": "Over 2.5", "probability": 70, "confidence": "HIGH", "odds": 1.8},
-        {"type": "BTTS", "recommendation": "Yes", "probability": 62, "confidence": "MEDIUM", "odds": 1.9}
+        {"type": "BTTS", "recommendation": "Yes/No", "probability": 62, "confidence": "MEDIUM", "odds": 1.9}
       ],
-      "analysis": "Analyse tactique fondamentale...",
+      "analysis": "Analyse tactique fondamentale très détaillée ici...",
       "vipInsight": {
         "exactScores": ["2-1", "3-1"],
-        "strategy": {"safe": "Mise 1", "value": "Mise 2", "aggressive": "Mise 3"},
-        "keyFact": "Détail clé du match",
+        "strategy": {"safe": "...", "value": "...", "aggressive": "..."},
+        "keyFact": "Le détail clé du match",
         "detailedStats": {
-          "corners": "Over 9.5 (Probabilité 78%)",
-          "yellowCards": "Under 4.5 (Probabilité 65%)",
-          "offsides": "Over 3.5 (Probabilité 60%)",
-          "fouls": "22-25 total (Probabilité 72%)",
-          "shots": "28+ au total (Probabilité 80%)",
-          "shotsOnTarget": "10+ au total (Probabilité 75%)",
-          "scorers": [{"name": "Erling Haaland", "probability": 68}]
+          "corners": "9-11 au total (Probabilité 78%)",
+          "yellowCards": "3-4 cartons (Probabilité 65%)",
+          "offsides": "2-3 hors-jeu (Probabilité 60%)",
+          "fouls": "20-25 fautes (Probabilité 72%)",
+          "shots": "12-15 tirs (Probabilité 80%)",
+          "shotsOnTarget": "5-6 tirs cadrés (Probabilité 75%)",
+          "scorers": [{"name": "Nom Joueur", "probability": 68}]
         }
       }
     }
@@ -53,7 +49,7 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -61,34 +57,33 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
       }
     });
 
-    const rawText = response.text || '{}';
-    const data = JSON.parse(rawText.replace(/```json|```/g, "").trim());
+    const data = JSON.parse(response.text || '{}');
 
     return {
       predictions: (data.predictions || []).map((p: any) => ({
         ...p,
         confidence: (p.confidence || 'MEDIUM').toUpperCase() as Confidence,
       })),
-      analysis: data.analysis || "Analyse tactique disponible pour les membres Elite.",
+      analysis: data.analysis || "Analyse fondamentale non disponible.",
       vipInsight: data.vipInsight || { 
         exactScores: ["?-?"], 
-        keyFact: "N/A",
+        keyFact: "Indisponible",
         strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" }
       },
       sources: []
     };
   } catch (error) {
-    console.error("Gemini Critical Error:", error);
+    console.error("Gemini Error:", error);
     return {
       predictions: [
         { type: "1X2", recommendation: "N/A", probability: 50, confidence: Confidence.MEDIUM, odds: 0 },
         { type: "O/U 2.5", recommendation: "N/A", probability: 50, confidence: Confidence.MEDIUM, odds: 0 },
         { type: "BTTS", recommendation: "N/A", probability: 50, confidence: Confidence.MEDIUM, odds: 0 }
       ],
-      analysis: "Erreur lors de la génération de l'analyse IA.",
+      analysis: "Erreur de connexion avec l'IA.",
       vipInsight: { 
         exactScores: ["?-?"], 
-        keyFact: "Erreur serveur",
+        keyFact: "Erreur",
         strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" }
       },
       sources: []

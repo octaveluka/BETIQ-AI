@@ -1,4 +1,3 @@
-
 const API_KEY = '8fc116983517a0adaa7e23c8c688e56e3bce4429d6d87511d759b9ebfd53f564';
 const BASE_URL = 'https://apiv3.apifootball.com/';
 
@@ -38,17 +37,20 @@ export async function fetchMatchesByDate(date: string): Promise<ApiMatch[]> {
     const data = await response.json();
     if (data.error || !Array.isArray(data)) return [];
     
-    const relevantLeagues = [
-      'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 
-      'Champions League', 'Europa League', 'Africa Cup of Nations', 'CAN',
-      'Coupe d\'Afrique', 'CAF', 'Eredivisie', 'Primeira Liga'
-    ];
+    // On élargit les critères pour ne rater aucun match de la CAN
+    const africanKeywords = ['Africa', 'CAN', 'Cup of Nations', 'CAF', 'Afrique'];
 
-    return data.filter(m => 
-      relevantLeagues.some(l => m.league_name.includes(l)) || 
-      ['England', 'Spain', 'France', 'Italy', 'Germany', 'Africa'].includes(m.country_name) ||
-      m.league_id === '28' // ID constant pour la CAN dans beaucoup de providers
-    ).slice(0, 100);
+    return data.filter(m => {
+      const isAfrican = africanKeywords.some(key => 
+        m.league_name.includes(key) || 
+        m.country_name.includes(key)
+      );
+      
+      const isTopLeague = ['England', 'Spain', 'France', 'Italy', 'Germany'].includes(m.country_name);
+      const isEliteLeague = ['Champions League', 'Europa League'].some(l => m.league_name.includes(l));
+
+      return isAfrican || isTopLeague || isEliteLeague || m.league_id === '28';
+    });
 
   } catch (error) {
     console.error("FootballAPI Error:", error);
