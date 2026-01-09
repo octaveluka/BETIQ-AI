@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { FootballMatch, Confidence, BetType, Prediction, VipInsight } from "../types";
 
@@ -8,40 +9,56 @@ export interface AnalysisResult {
   sources: { title: string; uri: string }[];
 }
 
-export async function generatePredictionsAndAnalysis(match: Partial<FootballMatch>, language: string): Promise<AnalysisResult> {
+export async function generatePredictionsAndAnalysis(match: FootballMatch, language: string): Promise<AnalysisResult> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Championnats majeurs pour stats détaillées
   const majorLeagues = ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Champions League', 'Europa League'];
   const isMajor = majorLeagues.some(l => match.league?.includes(l));
 
+  // Préparation des données statistiques injectées
+  const homeStanding = match.homeTeamStats ? `${match.homeTeam} est ${match.homeTeamStats.standing}e avec ${match.homeTeamStats.points} pts` : 'N/A';
+  const awayStanding = match.awayTeamStats ? `${match.awayTeam} est ${match.awayTeamStats.standing}e avec ${match.awayTeamStats.points} pts` : 'N/A';
+  const homeForm = match.homeTeamStats?.recentForm?.join(', ') || 'N/A';
+  const awayForm = match.awayTeamStats?.recentForm?.join(', ') || 'N/A';
+
   const prompt = `
-    TON RÔLE : Expert Analyste Data Football (Tipster Professionnel).
+    TON RÔLE : Analyste expert en Data Football et Probabilités.
     MATCH : ${match.homeTeam} vs ${match.awayTeam} (${match.league}).
     LANGUE : ${language}.
 
-    INSTRUCTIONS CRITIQUES :
-    1. Analyse les dernières infos via Google Search (blessures, compositions, météo).
-    2. Marchés : 1X2, Over/Under 2.5, Les deux équipes marquent (BTTS).
-    3. ${isMajor ? 'STATS DÉTAILLÉES REQUISES : Corners, Cartons Jaunes, Hors-jeu, Fautes, Tirs totaux, Tirs cadrés (soit match, soit par équipe).' : ''}
-    4. ${isMajor ? 'BUTEURS : Liste des buteurs probables avec pourcentage de chance.' : ''}
-    5. Propose deux scores exacts probables.
+    DONNÉES STATISTIQUES FOURNIES :
+    - Classement : 
+      * ${homeStanding}
+      * ${awayStanding}
+    - Forme Récente (5 derniers matchs) :
+      * ${match.homeTeam} : ${homeForm}
+      * ${match.awayTeam} : ${awayForm}
 
-    TU DOIS RÉPONDRE EXCLUSIVEMENT AU FORMAT JSON SUIVANT (SANS MARKDOWN) :
+    OBJECTIF : Réaliser une analyse fondamentale basée sur ces données.
+    
+    STATISTIQUES DÉTAILLÉES REQUISES (OBLIGATOIRE POUR GRANDS CHAMPIONNATS) :
+    - Corners (Total match ou par équipe)
+    - Cartons Jaunes (Total match ou par équipe)
+    - Hors-jeu (Total match ou par équipe)
+    - Fautes (Total match ou par équipe)
+    - Tirs totaux et Tirs cadrés (Total match ou par équipe)
+    - Buteurs probables avec probabilité en %
+
+    RÉPONDS EXCLUSIVEMENT AU FORMAT JSON SUIVANT :
     {
-      "predictions": [{"type": "1X2", "recommendation": "1", "probability": 70, "confidence": "HIGH", "odds": 1.55}],
-      "analysis": "Texte d'analyse tactique complet ici...",
+      "predictions": [{"type": "1X2", "recommendation": "1", "probability": 70, "confidence": "HIGH", "odds": 1.70}],
+      "analysis": "Analyse tactique fondamentale basée sur le classement et la forme...",
       "vipInsight": {
         "exactScores": ["2-0", "2-1"],
-        "keyFact": "Le fait majeur du match...",
+        "keyFact": "Facteur décisif du match...",
         "detailedStats": {
-          "corners": "Ex: Plus de 9.5 corners",
-          "yellowCards": "Ex: 3-4 cartons au total",
-          "offsides": "Ex: Environ 4 hors-jeu",
-          "fouls": "Ex: Match physique, +25 fautes",
-          "shots": "Ex: 22 tirs au total",
-          "shotsOnTarget": "Ex: 8 tirs cadrés attendus",
-          "scorers": [{"name": "Joueur X", "probability": 48}]
+          "corners": "Ex: Over 8.5",
+          "yellowCards": "Ex: 4-5 total",
+          "offsides": "Ex: 3-4",
+          "fouls": "Ex: +20 fautes",
+          "shots": "Ex: 25 tirs",
+          "shotsOnTarget": "Ex: 9 cadrés",
+          "scorers": [{"name": "Nom Joueur", "probability": 45}]
         }
       }
     }
@@ -52,20 +69,12 @@ export async function generatePredictionsAndAnalysis(match: Partial<FootballMatc
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }],
-        thinkingConfig: { thinkingBudget: 10000 },
         responseMimeType: "application/json"
       }
     });
 
     const text = response.text.replace(/```json|```/g, "").trim();
     const data = JSON.parse(text);
-    
-    const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
-      ?.map((chunk: any) => ({
-        title: chunk.web?.title || "Analyse Web",
-        uri: chunk.web?.uri || ""
-      })).filter((s: any) => s.uri) || [];
     
     return {
       predictions: (data.predictions || []).map((p: any) => ({
@@ -78,20 +87,10 @@ export async function generatePredictionsAndAnalysis(match: Partial<FootballMatc
         ...data.vipInsight,
         strategy: { safe: "Safe", value: "Value", aggressive: "Aggressive" }
       },
-      sources
-    };
-  } catch (error) {
-    console.error("Gemini Failure:", error);
-    // Retour de secours pour ne pas bloquer l'UI
-    return {
-      predictions: [{ type: BetType.W1X2, recommendation: "N/A", probability: 50, confidence: Confidence.MEDIUM, odds: 0 }],
-      analysis: "Erreur de génération de l'analyse IA. Veuillez réessayer.",
-      vipInsight: {
-        exactScores: ["?-?"],
-        strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" },
-        keyFact: "Impossible de charger l'analyse pour le moment."
-      },
       sources: []
     };
+  } catch (error) {
+    console.error("Gemini Error:", error);
+    throw error;
   }
 }

@@ -15,6 +15,12 @@ export enum BetType {
   CARDS = 'CARTONS'
 }
 
+export interface TeamStats {
+  standing: number;
+  points: number;
+  recentForm: string[]; // Ex: ['W', 'D', 'L', 'W', 'W']
+}
+
 export interface MatchStats {
   homeForm: string[]; 
   awayForm: string[];
@@ -55,6 +61,7 @@ export interface VipInsight {
 export interface FootballMatch {
   id: string;
   league: string;
+  league_id?: string;
   homeTeam: string;
   awayTeam: string;
   homeLogo: string;
@@ -63,6 +70,8 @@ export interface FootballMatch {
   status: string;
   predictions: Prediction[];
   stats: MatchStats;
+  homeTeamStats?: TeamStats;
+  awayTeamStats?: TeamStats;
   vipInsight?: VipInsight;
   analysis?: string;
 }
