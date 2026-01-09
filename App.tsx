@@ -31,30 +31,30 @@ const VALID_USER_CODES = new Set(VALID_CODES_ARRAY);
 
 const STRINGS: Record<Language, any> = {
   FR: {
-    loading: "Intelligence Artificielle...",
+    loading: "Analyse IA en cours...",
     freeTitle: "SECONDE ZONE",
     vipTitle: "CHOCS DU JOUR",
-    topVip: "TOP 3 SAFE",
+    topVip: "LE TOP 3 SAFE DU JOUR",
     allVip: "TOUS LES PRONOSTICS",
-    vipAccess: "ACCÈS VIP ACTIF",
+    vipAccess: "MODE VIP ACTIVÉ",
     buyVip: "S'abonner (30 jours)",
-    enterCode: "Code d'activation...",
-    vipInsight: "ANALYSE ÉLITE VIP",
+    enterCode: "Code promo ou activation...",
+    vipInsight: "ANALYSE PRÉCISION VIP",
     algoVerdict: "Verdict de l'Algorithme",
-    searchPlaceholder: "Rechercher un match..."
+    searchPlaceholder: "Chercher un match ou une ligue..."
   },
   EN: {
-    loading: "AI Analysis...",
+    loading: "AI Analyzing...",
     freeTitle: "SECOND ZONE",
     vipTitle: "TODAY'S CLASHES",
-    topVip: "TOP 3 SAFE",
+    topVip: "TODAY'S TOP 3 SAFE",
     allVip: "ALL PREDICTIONS",
-    vipAccess: "VIP ACCESS ACTIVE",
+    vipAccess: "VIP MODE ACTIVE",
     buyVip: "Get VIP Access",
     enterCode: "Activation Code...",
-    vipInsight: "VIP ELITE INSIGHT",
-    algoVerdict: "AI Algorithm Verdict",
-    searchPlaceholder: "Search match..."
+    vipInsight: "VIP PRECISION INSIGHT",
+    algoVerdict: "Algorithm Verdict",
+    searchPlaceholder: "Search match or league..."
   }
 };
 
@@ -119,7 +119,7 @@ const AuthView: React.FC = () => {
           <input type="password" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[#020617] border border-white/10 rounded-xl py-4 px-5 text-xs text-white outline-none focus:border-blue-500/50" />
           {error && <div className="text-[10px] text-rose-500 font-black text-center">{error}</div>}
           <button disabled={loading} className="w-full bg-orange-500 text-slate-950 font-black py-4 rounded-xl text-[11px] uppercase shadow-lg shadow-orange-500/20 active:scale-95 transition-transform">
-            {loading ? <Loader2 className="animate-spin mx-auto" size={16} /> : (isLogin ? 'LOG IN' : 'REGISTER')}
+            {loading ? <Loader2 className="animate-spin mx-auto" size={16} /> : (isLogin ? 'ACCÉDER' : 'S\'INSCRIRE')}
           </button>
         </form>
       </div>
@@ -127,16 +127,23 @@ const AuthView: React.FC = () => {
   );
 };
 
-const PredictionsView: React.FC<any> = ({ matches, loading, language, isVip, onRefresh }) => {
+const PredictionsView: React.FC<any> = ({ matches, loading, language, isVip, selectedDate, onDateChange, onRefresh }) => {
   const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
   const S = STRINGS[language];
 
-  // Accueil: 2 VIP + 3 Seconde Zone
+  const filtered = useMemo(() => {
+    return matches.filter(m => 
+      m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [matches, searchTerm]);
+
   const { vipHome, freeHome } = useMemo(() => {
-    const vip = matches.filter(isPopularMatch).slice(0, 2);
-    const free = matches.filter(m => !isPopularMatch(m)).slice(0, 3);
+    const vip = filtered.filter(isPopularMatch).slice(0, 2);
+    const free = filtered.filter(m => !isPopularMatch(m)).slice(0, 3);
     return { vipHome: vip, freeHome: free };
-  }, [matches]);
+  }, [filtered]);
 
   return (
     <div className="pb-32 px-5 max-w-2xl mx-auto">
@@ -150,13 +157,26 @@ const PredictionsView: React.FC<any> = ({ matches, loading, language, isVip, onR
         </button>
       </header>
 
+      {/* Barre de Recherche & Jours en Home Standard */}
+      <div className="mb-8 space-y-4">
+        <div className="relative">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" />
+          <input 
+            type="text" 
+            placeholder={S.searchPlaceholder}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-[#0b1121] border border-white/5 rounded-2xl py-4 pl-12 pr-6 text-xs text-white outline-none focus:border-blue-500/30"
+          />
+        </div>
+        <DateSelector selectedDate={selectedDate} onDateChange={onDateChange} />
+      </div>
+
       <div className="space-y-10">
         <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Crown size={14} className="text-orange-500" />
-              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">{S.vipTitle}</h3>
-            </div>
+          <div className="flex items-center gap-2">
+            <Crown size={14} className="text-orange-500" />
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">{S.vipTitle}</h3>
           </div>
           <div className="grid grid-cols-1 gap-4">
             {vipHome.map(m => (
@@ -189,8 +209,7 @@ const VipZoneView: React.FC<any> = ({ matches, loading, language, isVip, selecte
   const filtered = useMemo(() => {
     return matches.filter(m => 
       m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.league.toLowerCase().includes(searchTerm.toLowerCase())
+      m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [matches, searchTerm]);
 
@@ -199,16 +218,15 @@ const VipZoneView: React.FC<any> = ({ matches, loading, language, isVip, selecte
 
   return (
     <div className="p-5 pb-32 max-w-2xl mx-auto space-y-6">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between pt-4">
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-xl ${isVip ? 'bg-emerald-500' : 'bg-orange-500'}`}>
             <Crown size={24} className="text-slate-950" />
           </div>
-          <h2 className="text-xl font-black italic text-white uppercase">{S.allVip}</h2>
+          <h2 className="text-xl font-black italic text-white uppercase">{isVip ? 'PRONOSTICS DU JOUR' : 'ZONE VIP'}</h2>
         </div>
       </header>
 
-      {/* Barre de recherche & Date */}
       <div className="space-y-4">
         <div className="relative">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" />
@@ -223,33 +241,35 @@ const VipZoneView: React.FC<any> = ({ matches, loading, language, isVip, selecte
         <DateSelector selectedDate={selectedDate} onDateChange={onDateChange} />
       </div>
 
-      <div className="space-y-10">
-        {/* Top 3 Safe */}
-        <section className="space-y-4">
-          <h3 className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">{S.topVip}</h3>
-          <div className="space-y-3">
-            {top3.map(m => (
-              <VipSafeCard key={m.id} match={m} isLocked={!isVip} onClick={() => navigate(`/match/${m.id}`, { state: { match: m, forceLock: !isVip } })} />
-            ))}
-          </div>
-        </section>
+      {loading ? (
+        <div className="py-24 text-center"><Loader2 className="animate-spin text-orange-500 mx-auto" size={40} /></div>
+      ) : (
+        <div className="space-y-10">
+          <section className="space-y-4">
+            <h3 className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">{S.topVip}</h3>
+            <div className="space-y-3">
+              {top3.map(m => (
+                <VipSafeCard key={m.id} match={m} isLocked={!isVip} onClick={() => navigate(`/match/${m.id}`, { state: { match: m, forceLock: !isVip } })} />
+              ))}
+            </div>
+          </section>
 
-        {/* Tous les autres */}
-        <section className="space-y-4">
-          <h3 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">LISTE DES MATCHS</h3>
-          <div className="grid grid-cols-1 gap-4">
-            {others.map(m => (
-              <MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={!isVip} onClick={(m) => navigate(`/match/${m.id}`, { state: { match: m, forceLock: !isVip } })} />
-            ))}
-          </div>
-        </section>
-      </div>
+          <section className="space-y-4">
+            <h3 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">MATCHS ÉLITE</h3>
+            <div className="grid grid-cols-1 gap-4">
+              {others.map(m => (
+                <MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={!isVip} onClick={(m) => navigate(`/match/${m.id}`, { state: { match: m, forceLock: !isVip } })} />
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
 
       {!isVip && (
         <div className="mt-8 bg-orange-500/5 border border-orange-500/20 p-8 rounded-[2.5rem] text-center space-y-4 shadow-xl">
           <Lock size={32} className="text-orange-500 mx-auto" />
-          <p className="text-[10px] font-bold text-slate-300 italic uppercase">Débloquez les pronostics scores exacts et buteurs.</p>
-          <button onClick={() => navigate('/settings')} className="w-full bg-orange-500 text-slate-950 font-black py-4 rounded-xl text-[10px] uppercase shadow-lg shadow-orange-500/20">ACTIVER VIP</button>
+          <p className="text-[10px] font-bold text-slate-300 italic uppercase">Scores exacts, Corners, Cartons et Buteurs.</p>
+          <button onClick={() => navigate('/settings')} className="w-full bg-orange-500 text-slate-950 font-black py-4 rounded-xl text-[10px] uppercase shadow-lg shadow-orange-500/20">PASSER VIP</button>
         </div>
       )}
     </div>
@@ -270,7 +290,7 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
       setLoading(true);
       generatePredictionsAndAnalysis(match, language).then(res => {
         setData(res); setLoading(false);
-      }).catch((e) => { console.error(e); setLoading(false); });
+      }).catch((e) => { console.error("UI IA Error:", e); setLoading(false); });
     }
   }, [match, language, isVip, forcedLock]);
 
@@ -285,7 +305,6 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
       </nav>
 
       <div className="p-5 space-y-8 max-w-2xl mx-auto">
-        {/* Score Board */}
         <div className="bg-[#0b1121] p-8 rounded-[3rem] border border-white/5 flex items-center justify-around shadow-2xl">
           <div className="text-center w-1/3">
              <img src={match.homeLogo} className="w-16 h-16 mx-auto mb-3 object-contain" alt="home" />
@@ -301,9 +320,8 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
         {forcedLock && !isVip ? (
           <div className="bg-[#0b1121] p-10 rounded-[3rem] border border-orange-500/20 text-center space-y-6 shadow-2xl">
             <Lock size={40} className="text-orange-500 mx-auto" />
-            <h2 className="text-2xl font-black text-white uppercase italic">ANALYSE BLOQUÉE</h2>
-            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest leading-relaxed">Cette analyse Elite (Corners, Cartons, Buteurs) est réservée aux abonnés VIP.</p>
-            <button onClick={() => navigate('/settings')} className="w-full bg-orange-500 text-slate-950 font-black py-5 rounded-2xl text-[10px] uppercase shadow-2xl shadow-orange-500/30">PASSER VIP MAINTENANT</button>
+            <h2 className="text-2xl font-black text-white uppercase italic">ANALYSE ÉLITE BLOQUÉE</h2>
+            <button onClick={() => navigate('/settings')} className="w-full bg-orange-500 text-slate-950 font-black py-5 rounded-2xl text-[10px] uppercase">ACTIVER VIP MAINTENANT</button>
           </div>
         ) : loading ? (
           <div className="flex flex-col items-center py-20 gap-4">
@@ -312,7 +330,6 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
           </div>
         ) : data && (
           <div className="space-y-6">
-            {/* Predictions Grid */}
             <div className="grid grid-cols-1 gap-4">
               {data.predictions.map((p: any, i: number) => (
                 <div key={i} className="bg-[#0b1121] p-6 rounded-[2rem] border border-white/5 flex justify-between items-center shadow-lg">
@@ -328,8 +345,7 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
               ))}
             </div>
 
-            {/* VIP Insights - Exact Scores & Stats */}
-            <div className="bg-orange-500/5 p-8 rounded-[3rem] border border-orange-500/20 space-y-6 shadow-xl shadow-orange-500/5">
+            <div className="bg-orange-500/5 p-8 rounded-[3rem] border border-orange-500/20 space-y-6">
               <div className="flex items-center gap-3">
                 <Crown size={16} className="text-orange-500" />
                 <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest italic">{S.vipInsight}</span>
@@ -341,32 +357,34 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
                 ))}
               </div>
 
-              {/* Detailed Stats for Major Leagues */}
               {data.vipInsight.detailedStats && (
                 <div className="grid grid-cols-2 gap-3 text-white">
                   <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                    <div className="flex items-center gap-2 mb-1"><Activity size={12} className="text-blue-400" /><span className="text-[8px] font-black text-slate-500 uppercase">Corners</span></div>
+                    <Activity size={12} className="text-blue-400 mb-1" />
+                    <span className="text-[8px] font-black text-slate-500 uppercase block">Corners</span>
                     <span className="text-xs font-bold uppercase">{data.vipInsight.detailedStats.corners}</span>
                   </div>
                   <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                    <div className="flex items-center gap-2 mb-1"><AlertCircle size={12} className="text-yellow-500" /><span className="text-[8px] font-black text-slate-500 uppercase">Cartons</span></div>
+                    <AlertCircle size={12} className="text-yellow-500 mb-1" />
+                    <span className="text-[8px] font-black text-slate-500 uppercase block">Cartons</span>
                     <span className="text-xs font-bold uppercase">{data.vipInsight.detailedStats.yellowCards}</span>
                   </div>
                   <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                    <div className="flex items-center gap-2 mb-1"><Target size={12} className="text-emerald-500" /><span className="text-[8px] font-black text-slate-500 uppercase">Tirs Cadrés</span></div>
+                    <Target size={12} className="text-emerald-500 mb-1" />
+                    <span className="text-[8px] font-black text-slate-500 uppercase block">Tirs Cadrés</span>
                     <span className="text-xs font-bold uppercase">{data.vipInsight.detailedStats.shotsOnTarget}</span>
                   </div>
                   <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                    <div className="flex items-center gap-2 mb-1"><Goal size={12} className="text-rose-500" /><span className="text-[8px] font-black text-slate-500 uppercase">Fautes</span></div>
+                    <Goal size={12} className="text-rose-500 mb-1" />
+                    <span className="text-[8px] font-black text-slate-500 uppercase block">Fautes</span>
                     <span className="text-xs font-bold uppercase">{data.vipInsight.detailedStats.fouls}</span>
                   </div>
                 </div>
               )}
 
-              {/* Scorers */}
-              {data.vipInsight.detailedStats?.scorers && data.vipInsight.detailedStats.scorers.length > 0 && (
-                <div className="bg-white/5 p-6 rounded-3xl border border-white/5 space-y-3">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">BUTEURS PROBABLES (%)</p>
+              {data.vipInsight.detailedStats?.scorers && (
+                <div className="bg-white/5 p-6 rounded-3xl space-y-3">
+                  <p className="text-[9px] font-black text-slate-500 uppercase">Buteurs Probables (%)</p>
                   {data.vipInsight.detailedStats.scorers.map((s, idx) => (
                     <div key={idx} className="flex justify-between items-center text-xs">
                       <span className="font-bold text-slate-200 uppercase">{s.name}</span>
@@ -377,12 +395,9 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
               )}
             </div>
 
-            <div className="bg-[#0b1121] p-8 rounded-[3rem] border border-white/5 border-l-4 border-blue-500">
-               <div className="flex items-center gap-3 mb-4">
-                  <Zap size={16} className="text-blue-400" />
-                  <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest italic">{S.algoVerdict}</span>
-               </div>
-               <p className="text-sm text-slate-300 leading-relaxed font-bold italic uppercase tracking-tight">{data.analysis}</p>
+            <div className="bg-[#0b1121] p-8 rounded-[3rem] border-l-4 border-blue-500">
+               <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-4 italic">VERDICT TACTIQUE</span>
+               <p className="text-sm text-slate-300 leading-relaxed font-bold italic uppercase">{data.analysis}</p>
             </div>
           </div>
         )}
@@ -409,38 +424,33 @@ const SettingsView: React.FC<any> = ({ language, setLanguage, isVip, setIsVip, u
       <div className="bg-[#0b1121] p-8 rounded-[2.5rem] border border-white/5">
         <div className="flex items-center gap-4 mb-8">
           <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20"><UserCircle size={32} className="text-blue-400" /></div>
-          <div>
-            <p className="text-[8px] font-black text-slate-600 uppercase">Utilisateur</p>
-            <p className="text-sm font-bold text-white truncate">{userEmail}</p>
-          </div>
+          <div><p className="text-sm font-bold text-white truncate">{userEmail}</p></div>
         </div>
         <div className="space-y-3">
           <h2 className="text-[9px] font-black uppercase text-slate-600">Langue</h2>
           <div className="flex gap-3">
             {['FR', 'EN'].map(l => (
-              <button key={l} onClick={() => { setLanguage(l as Language); localStorage.setItem('lang', l); }} className={`flex-1 py-4 rounded-xl text-[10px] font-black transition-all ${language === l ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-[#020617] text-slate-700'}`}>{l}</button>
+              <button key={l} onClick={() => { setLanguage(l as Language); localStorage.setItem('lang', l); }} className={`flex-1 py-4 rounded-xl text-[10px] font-black ${language === l ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-[#020617] text-slate-700'}`}>{l}</button>
             ))}
           </div>
         </div>
       </div>
 
       {!isVip ? (
-        <div className="bg-[#0b1121] p-10 rounded-[2.5rem] border border-white/5 space-y-6 shadow-2xl text-center">
+        <div className="bg-[#0b1121] p-10 rounded-[2.5rem] border border-white/5 space-y-6 text-center shadow-2xl">
           <Crown size={40} className="text-orange-500 mx-auto" />
-          <p className="text-xl font-black text-white italic">PASSEZ EN MODE ELITE</p>
+          <p className="text-xl font-black text-white italic">PASSEZ VIP</p>
           <input type="text" value={code} onChange={(e) => checkCode(e.target.value)} placeholder={S.enterCode} className="w-full bg-[#020617] border border-white/10 rounded-xl py-5 text-center font-black text-white uppercase outline-none focus:border-orange-500/50" />
-          <button onClick={() => window.open(PAYMENT_LINK, '_blank')} className="w-full bg-orange-500 text-slate-950 font-black py-5 rounded-xl text-[11px] uppercase shadow-lg shadow-orange-500/20">
-            {S.buyVip}
-          </button>
+          <button onClick={() => window.open(PAYMENT_LINK, '_blank')} className="w-full bg-orange-500 text-slate-950 font-black py-5 rounded-xl text-[11px] uppercase">{S.buyVip}</button>
         </div>
       ) : (
         <div className="bg-emerald-500/5 p-10 rounded-[2.5rem] border border-emerald-500/20 text-center shadow-2xl">
           <CheckCircle2 size={40} className="text-emerald-500 mx-auto mb-4" />
-          <span className="text-2xl font-black text-white italic block uppercase">{S.vipAccess}</span>
+          <span className="text-2xl font-black text-white italic block uppercase">ACCÈS VIP ILLIMITÉ</span>
         </div>
       )}
 
-      <button onClick={() => signOut(auth)} className="w-full bg-rose-500/5 p-6 rounded-[2rem] border border-rose-500/10 flex items-center justify-center gap-3 text-rose-500 hover:bg-rose-500/10 transition-colors">
+      <button onClick={() => signOut(auth)} className="w-full bg-rose-500/5 p-6 rounded-[2rem] border border-rose-500/10 flex items-center justify-center gap-3 text-rose-500">
         <LogOut size={20} /><span className="text-xs font-black uppercase">Déconnexion</span>
       </button>
     </div>
@@ -488,7 +498,7 @@ const App: React.FC = () => {
   if (authLoading) return (
     <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6">
       <BrainCircuit size={64} className="text-blue-400 animate-pulse" />
-      <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest">BETIQ IA...</p>
+      <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest">INITIALISATION BETIQ IA...</p>
     </div>
   );
 
@@ -498,7 +508,7 @@ const App: React.FC = () => {
     <HashRouter>
       <div className="min-h-screen bg-[#020617] text-slate-100">
         <Routes>
-          <Route path="/" element={<PredictionsView matches={matches} loading={loading} language={language} isVip={isVip} onRefresh={() => fetchMatches(selectedDate)} />} />
+          <Route path="/" element={<PredictionsView matches={matches} loading={loading} language={language} isVip={isVip} selectedDate={selectedDate} onDateChange={setSelectedDate} onRefresh={() => fetchMatches(selectedDate)} />} />
           <Route path="/settings" element={<SettingsView language={language} setLanguage={setLanguage} isVip={isVip} setIsVip={setIsVip} userEmail={user.email} />} />
           <Route path="/match/:id" element={<MatchDetailView language={language} isVip={isVip} />} />
           <Route path="/vip" element={<VipZoneView matches={matches} loading={loading} language={language} isVip={isVip} selectedDate={selectedDate} onDateChange={setSelectedDate} />} />
@@ -506,9 +516,13 @@ const App: React.FC = () => {
         </Routes>
 
         <nav className="fixed bottom-6 left-6 right-6 bg-[#0b1121]/95 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] py-3 flex items-center justify-around z-50 shadow-2xl">
-          <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400">
-            <LayoutGrid size={22} /><span className="text-[8px] font-black uppercase">Home</span>
-          </Link>
+          {/* Le bouton Home ne doit plus exister pour les VIP */}
+          {!isVip && (
+            <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400">
+              <LayoutGrid size={22} /><span className="text-[8px] font-black uppercase">Home</span>
+            </Link>
+          )}
+          
           <Link to="/vip" className="flex flex-col items-center group relative px-4">
             <div className={`${isVip ? 'bg-emerald-500' : 'bg-orange-500'} p-3 rounded-full -mt-12 border-[6px] border-[#020617] shadow-xl group-active:scale-90 transition-transform`}>
               {isVip ? <Crown size={24} className="text-slate-950" /> : <Lock size={24} className="text-slate-950" />}
@@ -517,8 +531,9 @@ const App: React.FC = () => {
               {isVip ? 'PRONOSTICS' : 'VIP'}
             </span>
           </Link>
+          
           <Link to="/settings" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400">
-            <Settings size={22} /><span className="text-[8px] font-black uppercase">Profil</span>
+            <Settings size={22} /><span className="text-[8px] font-black uppercase tracking-tight">Profil</span>
           </Link>
         </nav>
       </div>
