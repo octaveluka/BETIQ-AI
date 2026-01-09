@@ -1,3 +1,4 @@
+
 const API_KEY = '8fc116983517a0adaa7e23c8c688e56e3bce4429d6d87511d759b9ebfd53f564';
 const BASE_URL = 'https://apiv3.apifootball.com/';
 
@@ -21,7 +22,6 @@ export interface ApiMatch {
 }
 
 export async function fetchMatchesByDate(date: string): Promise<ApiMatch[]> {
-  // Construction robuste de l'URL
   const params = new URLSearchParams({
     action: 'get_events',
     from: date,
@@ -33,36 +33,25 @@ export async function fetchMatchesByDate(date: string): Promise<ApiMatch[]> {
   
   try {
     const response = await fetch(url);
-
-    if (!response.ok) {
-      console.warn(`FootballAPI Response not OK: ${response.status}`);
-      return [];
-    }
+    if (!response.ok) return [];
 
     const data = await response.json();
+    if (data.error || !Array.isArray(data)) return [];
     
-    // Si l'API renvoie un objet d'erreur au lieu d'une liste
-    if (data.error || !Array.isArray(data)) {
-      console.warn("API Return Info:", data.error || "No data array");
-      return [];
-    }
-    
-    // Ligues prioritaires + Support pour les petites ligues demandées
     const relevantLeagues = [
       'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 
-      'Champions League', 'Europa League', 'Eredivisie', 'Primeira Liga',
-      'Championship', 'Segunda Division', 'Serie B', 'Ligue 2', 'Bundesliga 2',
-      'Jupiler Pro League', 'Super Lig', 'A-League', 'Super League'
+      'Champions League', 'Europa League', 'Africa Cup of Nations', 'CAN',
+      'Coupe d\'Afrique', 'CAF', 'Eredivisie', 'Primeira Liga'
     ];
 
-    // On garde un maximum de 80 matchs pour ne pas surcharger l'IA
     return data.filter(m => 
       relevantLeagues.some(l => m.league_name.includes(l)) || 
-      ['England', 'Spain', 'France', 'Italy', 'Germany', 'Netherlands', 'Portugal'].includes(m.country_name)
-    ).slice(0, 80);
+      ['England', 'Spain', 'France', 'Italy', 'Germany', 'Africa'].includes(m.country_name) ||
+      m.league_id === '28' // ID constant pour la CAN dans beaucoup de providers
+    ).slice(0, 100);
 
   } catch (error) {
-    console.error("FootballAPI Critical Network Error:", error);
+    console.error("FootballAPI Error:", error);
     return [];
   }
 }
@@ -74,7 +63,6 @@ export async function fetchStandings(leagueId: string) {
     if (!response.ok) return null;
     return await response.json();
   } catch (error) {
-    console.error("Standings Error:", error);
     return null;
   }
 }
