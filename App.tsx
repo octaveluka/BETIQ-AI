@@ -73,9 +73,9 @@ const LeagueSelector: React.FC<{ selected: string, onSelect: (s: string) => void
     { id: 'uel', name: 'UEFA Europa League', icon: <Trophy size={12}/> },
     { id: 'uecl', name: 'UEFA Conference League', icon: <Trophy size={12}/> },
     { id: 'libertadores', name: 'Copa Libertadores', icon: <Trophy size={12}/> },
-    { id: 'cafcl', name: 'Ligue des Champions CAF', icon: <Trophy size={12}/> },
+    { id: 'cafcl', name: 'CAF Champions League', icon: <Trophy size={12}/> },
     { id: 'concacafcl', name: 'CONCACAF Champions', icon: <Trophy size={12}/> },
-    { id: 'fifacwc', name: 'Coupe du Monde des Clubs', icon: <Globe size={12}/> },
+    { id: 'fifacwc', name: 'Club World Cup', icon: <Globe size={12}/> },
     { id: '152', name: 'Premier League', icon: <Target size={12}/> },
     { id: '302', name: 'La Liga', icon: <Target size={12}/> },
     { id: '207', name: 'Serie A', icon: <Target size={12}/> },
@@ -83,11 +83,11 @@ const LeagueSelector: React.FC<{ selected: string, onSelect: (s: string) => void
     { id: '168', name: 'Ligue 1', icon: <Target size={12}/> },
     { id: 'brasileirao', name: 'Brasileirão', icon: <Target size={12}/> },
     { id: 'ligamx', name: 'Liga MX', icon: <Target size={12}/> },
-    { id: 'mls', name: 'Major League Soccer', icon: <Target size={12}/> },
+    { id: 'mls', name: 'MLS', icon: <Target size={12}/> },
     { id: 'primeira', name: 'Primeira Liga', icon: <Target size={12}/> },
     { id: 'eredivisie', name: 'Eredivisie', icon: <Target size={12}/> },
-    { id: 'wc', name: 'Coupe du Monde FIFA', icon: <Trophy size={12}/> },
-    { id: 'euro', name: 'UEFA Euro', icon: <Trophy size={12}/> },
+    { id: 'wc', name: 'Coupe du Monde', icon: <Trophy size={12}/> },
+    { id: 'euro', name: 'Euro', icon: <Trophy size={12}/> },
     { id: 'copa', name: 'Copa América', icon: <Trophy size={12}/> },
     { id: '28', name: 'CAN', icon: <Trophy size={12}/> },
     { id: 'asiancup', name: 'Coupe d\'Asie', icon: <Trophy size={12}/> },
@@ -109,8 +109,6 @@ const LeagueSelector: React.FC<{ selected: string, onSelect: (s: string) => void
 
 const filterMatchesByLeague = (matches: FootballMatch[], leagueId: string) => {
   if (leagueId === 'all') return matches;
-  if (!isNaN(Number(leagueId))) return matches.filter(m => m.league_id === leagueId);
-  
   const keywordMap: Record<string, string> = {
     ucl: 'champions league', uel: 'europa league', uecl: 'conference', libertadores: 'libertadores',
     cafcl: 'caf champions', concacafcl: 'concacaf champions', fifacwc: 'club world cup',
@@ -118,9 +116,9 @@ const filterMatchesByLeague = (matches: FootballMatch[], leagueId: string) => {
     eredivisie: 'eredivisie', wc: 'world cup', euro: 'euro', copa: 'copa america',
     asiancup: 'asian cup', goldcup: 'gold cup', nationsleague: 'nations league', copadelrey: 'copa del rey'
   };
-  
   const keyword = keywordMap[leagueId];
   if (keyword) return matches.filter(m => m.league.toLowerCase().includes(keyword));
+  if (!isNaN(Number(leagueId))) return matches.filter(m => m.league_id === leagueId);
   return matches;
 };
 
@@ -166,10 +164,12 @@ const PredictionsView: React.FC<any> = ({ matches, loading, language, isVip, sel
         </div>
       </div>
       <div className="space-y-10">
-        <section className="space-y-4"><div className="flex items-center gap-2"><Crown size={14} className="text-orange-500" /><h3 className="text-[10px] font-black text-slate-500 uppercase italic">LIGUES ÉLITES (VERROUILLÉ STANDARD)</h3>
+        <section className="space-y-4">
+          <div className="flex items-center gap-2"><Crown size={14} className="text-orange-500" /><h3 className="text-[10px] font-black text-slate-500 uppercase italic">LIGUES ÉLITES (VERROUILLÉ STANDARD)</h3></div>
           <div className="grid grid-cols-1 gap-4">{vipList.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={true} onClick={(m) => handleMatchClick(m, true)} />))}</div>
         </section>
-        <section className="space-y-4"><div className="flex items-center gap-2"><Zap size={14} className="text-blue-400" /><h3 className="text-[10px] font-black text-slate-500 uppercase italic">ANALYSES ACCESSIBLES</h3>
+        <section className="space-y-4">
+          <div className="flex items-center gap-2"><Zap size={14} className="text-blue-400" /><h3 className="text-[10px] font-black text-slate-500 uppercase italic">ANALYSES ACCESSIBLES</h3></div>
           <div className="grid grid-cols-1 gap-4">{freeList.map(m => (<MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={false} onClick={(m) => handleMatchClick(m, false)} />))}</div>
         </section>
       </div>
@@ -213,13 +213,15 @@ const AuthView: React.FC = () => {
 const SettingsView: React.FC<any> = ({ language, setLanguage, isVip, setIsVip, userEmail }) => {
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState('');
+  const navigate = useNavigate();
 
   const activateVip = () => {
     if (VALID_USER_CODES.has(code) || code === ADMIN_CODE) {
       setIsVip(true);
       localStorage.setItem(`btq_vip_status_${userEmail}`, 'true');
       localStorage.setItem(`btq_vip_start_${userEmail}`, Date.now().toString());
-      setMsg("VIP ACTIVÉ ! Profitez de vos pronostics élites.");
+      setMsg("VIP ACTIVÉ ! Redirection...");
+      setTimeout(() => navigate('/vip'), 1500);
     } else { setMsg("Code invalide."); }
   };
 
@@ -315,10 +317,18 @@ const VipZoneView: React.FC<any> = ({ matches, loading, language, isVip, selecte
   const navigate = useNavigate();
   const [selectedLeague, setSelectedLeague] = useState('all');
   
-  const eliteMatches = useMemo(() => {
-    let base = matches.filter(isPopularMatch);
-    return filterMatchesByLeague(base, selectedLeague);
+  const filteredMatches = useMemo(() => {
+    // Mode VIP affiche tous les matchs de la ligue sélectionnée
+    return filterMatchesByLeague(matches, selectedLeague);
   }, [matches, selectedLeague]);
+
+  const vipMatches = useMemo(() => filteredMatches.filter(isPopularMatch), [filteredMatches]);
+  const otherMatches = useMemo(() => filteredMatches.filter(m => !isPopularMatch(m)), [filteredMatches]);
+
+  const handleMatchClick = (m: FootballMatch, locked: boolean) => {
+    if (locked && !isVip) { navigate('/settings'); return; }
+    navigate(`/match/${m.id}`, { state: { match: m, forceLock: locked } });
+  };
 
   return (
     <div className="pb-32 px-5 max-w-2xl mx-auto pt-10">
@@ -344,15 +354,28 @@ const VipZoneView: React.FC<any> = ({ matches, loading, language, isVip, selecte
           })}
         </div>
       </div>
-      <div className="space-y-4">
-        {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-orange-500" /></div> : eliteMatches.length > 0 ? (
-          eliteMatches.map(m => (
-            <VipSafeCard key={m.id} match={m} isLocked={!isVip} onClick={() => {
-              if (!isVip) navigate('/settings');
-              else navigate(`/match/${m.id}`, { state: { match: m, forceLock: true } });
-            }} />
-          ))
-        ) : <div className="text-center py-20 bg-[#0b1121] rounded-[2.5rem] border border-dashed border-white/5"><p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Aucun match d'élite pour ce jour/ligue</p></div>}
+      <div className="space-y-8">
+        {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-orange-500" /></div> : (
+          <>
+            <section className="space-y-4">
+              <h3 className="text-[10px] font-black text-[#c18c32] uppercase italic">CONFIANCE MAX ELITE</h3>
+              <div className="space-y-4">
+                {vipMatches.map(m => (
+                  <VipSafeCard key={m.id} match={m} isLocked={!isVip} onClick={() => handleMatchClick(m, true)} />
+                ))}
+              </div>
+            </section>
+            <section className="space-y-4">
+              <h3 className="text-[10px] font-black text-slate-500 uppercase italic">AUTRES MATCHS</h3>
+              <div className="grid grid-cols-1 gap-4">
+                {otherMatches.map(m => (
+                  <MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={false} onClick={(m) => handleMatchClick(m, false)} />
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+        {!loading && filteredMatches.length === 0 && <div className="text-center py-20 bg-[#0b1121] rounded-[2.5rem] border border-dashed border-white/5"><p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Aucun match trouvé pour ce jour/ligue</p></div>}
       </div>
     </div>
   );
@@ -403,7 +426,7 @@ const App: React.FC = () => {
         <Route path="/settings" element={<SettingsView language={language} setLanguage={setLanguage} isVip={isVip} setIsVip={setIsVip} userEmail={user.email} />} />
         <Route path="/match/:id" element={<MatchDetailView language={language} isVip={isVip} />} />
         <Route path="/vip" element={<VipZoneView matches={matches} loading={loading} language={language} isVip={isVip} selectedDate={selectedDate} onDateChange={setSelectedDate} />} />
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<Navigate to={isVip ? "/vip" : "/"} />} />
       </Routes>
       <nav className="fixed bottom-6 left-6 right-6 bg-[#0b1121]/95 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] py-3 flex items-center justify-around z-50 shadow-2xl">
         {!isVip && <Link to="/" className="flex flex-col items-center gap-1.5 p-3 text-slate-500 hover:text-blue-400 transition-colors"><LayoutGrid size={22} /><span className="text-[8px] font-black uppercase">DIRECT</span></Link>}
