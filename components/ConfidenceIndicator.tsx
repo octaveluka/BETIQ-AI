@@ -1,18 +1,17 @@
 
 import React from 'react';
-import { Confidence } from '../types';
+import { Confidence, Language } from '../types';
 
 interface Props {
   level: Confidence;
+  lang: Language;
 }
 
-export const ConfidenceIndicator: React.FC<Props> = ({ level }) => {
-  const lang = localStorage.getItem('lang') || 'FR';
-
+export const ConfidenceIndicator: React.FC<Props> = ({ level, lang }) => {
   const colors = {
     [Confidence.HIGH]: 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
     [Confidence.MEDIUM]: 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]',
-    [Confidence.LOW]: 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
+    [Confidence.LOW]: 'bg-rose-500 shadow-[0_0_8_rgba(244,63,94,0.5)]',
   };
 
   const labels = {
@@ -28,7 +27,7 @@ export const ConfidenceIndicator: React.FC<Props> = ({ level }) => {
     }
   };
 
-  const currentLabels = labels[lang as 'FR' | 'EN'] || labels.FR;
+  const currentLabels = labels[lang] || labels.FR;
 
   return (
     <div className="flex items-center gap-2">

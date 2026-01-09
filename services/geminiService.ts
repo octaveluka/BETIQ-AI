@@ -10,45 +10,53 @@ export interface AnalysisResult {
 }
 
 export async function generatePredictionsAndAnalysis(match: FootballMatch, language: string): Promise<AnalysisResult> {
+  // Initialisation dynamique à chaque appel pour garantir la récupération de la clé API la plus récente
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Strict prompt to prevent hallucinations and ensure real-time data usage via Google Search
+  // Détection de la CAN ou des compétitions majeures pour le grounding Google Search
+  const isCanMatch = match.league.toLowerCase().includes('can') || 
+                    match.league.toLowerCase().includes('nations cup') ||
+                    match.league.toLowerCase().includes('afrique') ||
+                    match.country_name?.toLowerCase().includes('africa');
+  
+  const isMajorLeague = ['Champions League', 'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1'].some(l => match.league.includes(l));
+
+  // Activation de Google Search uniquement si nécessaire pour optimiser la latence, 
+  // mais obligatoire pour la CAN et les ligues majeures pour éviter les erreurs d'effectifs.
+  const useSearch = isCanMatch || isMajorLeague;
+
   const prompt = `
-    RÔLE : Expert Analyste Sportif et Data Scientist Football de classe mondiale.
+    TU ES UN ANALYSTE TACTIQUE DE FOOTBALL PROFESSIONNEL.
     MATCH : ${match.homeTeam} vs ${match.awayTeam} (${match.league}).
     LANGUE : ${language === 'EN' ? 'English' : 'Français'}.
 
-    MISSION CRITIQUE : 
-    1. Utilise l'outil Google Search pour vérifier les compositions d'équipe RÉELLES à cette date précise.
-    2. NE PAS HALLUCINER : Vérifie qui est l'entraîneur actuel et quels joueurs sont réellement dans le club AUJOURD'HUI. 
-    3. Ne mentionne aucun joueur transféré ou ancien entraîneur.
-    4. Analyse les blessures récentes, les suspensions et la forme tactique des 3 derniers matchs.
+    MISSION CRITIQUE :
+    ${useSearch ? "1. UTILISE l'outil Google Search pour vérifier les EFFECTIFS ACTUELS, les blessures de DERNIÈRE MINUTE et l'ENTRAÎNEUR en poste aujourd'hui." : ""}
+    2. INTERDICTION D'HALLUCINER : Ne cite aucun joueur qui a quitté le club ou un ancien entraîneur. Si tu as un doute, ne mentionne pas de nom spécifique.
+    3. ANALYSE : Fournis une analyse tactique de 3-4 lignes basée sur des faits réels (forme, enjeux, absents).
+    4. PRÉDICTIONS : Génère des probabilités précises pour 1X2, Over/Under 2.5 et BTTS.
+    5. STATS VIP : Estime les corners, cartons et buteurs probables (uniquement joueurs présents).
 
-    PRÉDICTIONS REQUISES :
-    - 1X2, Over/Under 2.5, BTTS (Les deux équipes marquent).
-    - Statistiques : Corners, Cartons, Tirs, Fautes.
-    - Buteurs : Identifie les buteurs probables basés sur les derniers lineups.
-
-    RÉPONDS UNIQUEMENT AU FORMAT JSON SUIVANT :
+    RÉPONDS UNIQUEMENT AU FORMAT JSON STRICT :
     {
       "predictions": [
-        {"type": "1X2", "recommendation": "Equipe Gagnante", "probability": 70, "confidence": "HIGH", "odds": 1.7},
-        {"type": "OVER/UNDER 2.5", "recommendation": "Plus de 2.5", "probability": 65, "confidence": "MEDIUM", "odds": 1.85},
-        {"type": "BTTS", "recommendation": "Oui", "probability": 55, "confidence": "LOW", "odds": 2.1}
+        {"type": "1X2", "recommendation": "...", "probability": 70, "confidence": "HIGH", "odds": 1.75},
+        {"type": "OVER/UNDER 2.5", "recommendation": "...", "probability": 65, "confidence": "MEDIUM", "odds": 1.80},
+        {"type": "BTTS", "recommendation": "...", "probability": 55, "confidence": "LOW", "odds": 1.95}
       ],
-      "analysis": "Analyse tactique basée sur les faits réels vérifiés (lineups, tactique).",
+      "analysis": "...",
       "vipInsight": {
         "exactScores": ["1-0", "2-1"],
-        "strategy": {"safe": "Signal 1X", "value": "Over 1.5", "aggressive": "Buteur spécifique"},
-        "keyFact": "Le fait marquant vérifié par Google Search.",
+        "strategy": {"safe": "...", "value": "...", "aggressive": "..."},
+        "keyFact": "...",
         "detailedStats": {
-          "corners": "8-10",
-          "yellowCards": "3-4",
-          "offsides": "2-3",
-          "fouls": "20-24",
+          "corners": "8-11",
+          "yellowCards": "3-5",
+          "offsides": "2-4",
+          "fouls": "22-26",
           "shots": "12-15",
           "shotsOnTarget": "4-6",
-          "scorers": [{"name": "Nom Joueur Réel", "probability": 60}]
+          "scorers": [{"name": "...", "probability": 45}]
         }
       }
     }
@@ -56,78 +64,31 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // High accuracy model
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        // Enable Google Search for ALL matches to avoid hallucinations
-        tools: [{ googleSearch: {} }],
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            predictions: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  type: { type: Type.STRING },
-                  recommendation: { type: Type.STRING },
-                  probability: { type: Type.NUMBER },
-                  confidence: { type: Type.STRING },
-                  odds: { type: Type.NUMBER }
-                }
-              }
-            },
-            analysis: { type: Type.STRING },
-            vipInsight: {
-              type: Type.OBJECT,
-              properties: {
-                exactScores: { type: Type.ARRAY, items: { type: Type.STRING } },
-                strategy: {
-                  type: Type.OBJECT,
-                  properties: {
-                    safe: { type: Type.STRING },
-                    value: { type: Type.STRING },
-                    aggressive: { type: Type.STRING }
-                  }
-                },
-                keyFact: { type: Type.STRING },
-                detailedStats: {
-                  type: Type.OBJECT,
-                  properties: {
-                    corners: { type: Type.STRING },
-                    yellowCards: { type: Type.STRING },
-                    offsides: { type: Type.STRING },
-                    fouls: { type: Type.STRING },
-                    shots: { type: Type.STRING },
-                    shotsOnTarget: { type: Type.STRING },
-                    scorers: {
-                      type: Type.ARRAY,
-                      items: {
-                        type: Type.OBJECT,
-                        properties: {
-                          name: { type: Type.STRING },
-                          probability: { type: Type.NUMBER }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+        // Utilisation de googleSearch comme seul outil autorisé si activé
+        tools: useSearch ? [{ googleSearch: {} }] : undefined,
       }
     });
 
-    const data = JSON.parse(response.text || '{}');
-    
-    // Extract real web sources from grounding metadata
+    const text = response.text;
+    if (!text) throw new Error("Empty AI response");
+
+    const data = JSON.parse(text);
+
+    // Extraction des sources de recherche Google si disponibles
     const sources: { title: string; uri: string }[] = [];
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-    if (chunks) {
-      chunks.forEach((c: any) => {
-        if (c.web) sources.push({ title: c.web.title, uri: c.web.uri });
+    const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+    if (groundingMetadata?.groundingChunks) {
+      groundingMetadata.groundingChunks.forEach((chunk: any) => {
+        if (chunk.web && chunk.web.uri) {
+          sources.push({
+            title: chunk.web.title || "Lien de vérification",
+            uri: chunk.web.uri
+          });
+        }
       });
     }
 
@@ -136,7 +97,7 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
         ...p,
         confidence: (p.confidence || 'MEDIUM').toUpperCase() as Confidence,
       })),
-      analysis: data.analysis || "Analysis unavailable.",
+      analysis: data.analysis || "Analyse technique en cours de mise à jour.",
       vipInsight: data.vipInsight || { 
         exactScores: ["?-?"], 
         keyFact: "N/A",
@@ -145,11 +106,18 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
       sources: sources
     };
   } catch (error) {
-    console.error("AI Analysis Failed:", error);
+    console.error("Gemini Generation Error:", error);
+    // Retour d'un objet par défaut cohérent en cas d'erreur
     return {
-      predictions: [{ type: "1X2", recommendation: "Signal Error", probability: 50, confidence: Confidence.MEDIUM, odds: 1.0 }],
-      analysis: "Impossible de générer l'analyse pour le moment.",
-      vipInsight: { exactScores: [], keyFact: "Error", strategy: { safe: "", value: "", aggressive: "" } },
+      predictions: [
+        { type: "1X2", recommendation: "Signal Indisponible", probability: 50, confidence: Confidence.MEDIUM, odds: 1.0 }
+      ],
+      analysis: language === 'EN' ? "AI analysis is currently unavailable. Please try again later." : "L'analyse IA est temporairement indisponible. Veuillez réessayer plus tard.",
+      vipInsight: { 
+        exactScores: ["?-?"], 
+        keyFact: "Erreur technique",
+        strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" }
+      },
       sources: []
     };
   }

@@ -26,6 +26,7 @@ import {
 import { FootballMatch, Confidence, Language } from './types';
 import { MatchCard } from './components/MatchCard';
 import { VipSafeCard } from './components/VipSafeCard';
+import { ConfidenceIndicator } from './components/ConfidenceIndicator';
 import { generatePredictionsAndAnalysis, AnalysisResult } from './services/geminiService';
 import { fetchMatchesByDate } from './services/footballApiService';
 
@@ -69,7 +70,11 @@ const DICTIONARY = {
     navVip: "VIP",
     navSettings: "RÉGLAGES",
     maxConfidence: "CONFIANCE MAX",
-    probaLabel: "PROBA"
+    probaLabel: "PROBA",
+    corners: "Corners",
+    cards: "Cartons",
+    shots: "Tirs",
+    onTarget: "Cadrés"
   },
   EN: {
     freeTitle: "FREE PREDICTIONS",
@@ -105,7 +110,11 @@ const DICTIONARY = {
     navVip: "VIP",
     navSettings: "SETTINGS",
     maxConfidence: "MAX CONFIDENCE",
-    probaLabel: "PROB"
+    probaLabel: "PROB",
+    corners: "Corners",
+    cards: "Cards",
+    shots: "Shots",
+    onTarget: "On Target"
   }
 };
 
@@ -344,7 +353,7 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
   const match = state?.match as FootballMatch;
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const t = DICTIONARY[language];
+  const t = DICTIONARY[language as Language];
 
   useEffect(() => {
     if (!match) { navigate('/'); return; }
@@ -385,13 +394,16 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
             <div className="grid grid-cols-1 gap-3">
               {analysis.predictions.map((p, i) => (
                 <div key={i} className="bg-slate-950/60 p-5 rounded-2xl border border-white/5 flex justify-between items-center">
-                  <div>
+                  <div className="flex-1">
                     <p className="text-[9px] font-black text-slate-500 uppercase mb-1">{p.type}</p>
                     <p className="text-sm font-black text-white">{p.recommendation}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-black text-blue-400">{p.probability}%</p>
-                    <p className="text-[8px] font-black text-slate-500 uppercase">{t.probaLabel}</p>
+                  <div className="text-right flex flex-col items-end gap-1">
+                    <ConfidenceIndicator level={p.confidence as Confidence} lang={language as Language} />
+                    <div className="flex items-baseline gap-1">
+                       <p className="text-lg font-black text-blue-400">{p.probability}%</p>
+                       <p className="text-[8px] font-black text-slate-500 uppercase">{t.probaLabel}</p>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -406,10 +418,10 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
               <div className="bg-slate-900/40 p-6 rounded-2xl border border-white/5 space-y-4">
                 <h4 className="text-[10px] font-black text-slate-400 uppercase mb-2">{t.advancedSignals}</h4>
                 <div className="grid grid-cols-2 gap-4 text-[10px] font-bold">
-                  <div className="flex justify-between border-b border-white/5 pb-2"><span>Corners</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.corners}</span></div>
-                  <div className="flex justify-between border-b border-white/5 pb-2"><span>Cartons</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.yellowCards}</span></div>
-                  <div className="flex justify-between border-b border-white/5 pb-2"><span>Tirs</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.shots}</span></div>
-                  <div className="flex justify-between border-b border-white/5 pb-2"><span>Cadrés</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.shotsOnTarget}</span></div>
+                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.corners}</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.corners}</span></div>
+                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.cards}</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.yellowCards}</span></div>
+                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.shots}</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.shots}</span></div>
+                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.onTarget}</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.shotsOnTarget}</span></div>
                 </div>
                 <div className="mt-4">
                   <p className="text-[9px] font-black text-slate-500 uppercase mb-2">{t.probableScorers}</p>
@@ -428,9 +440,9 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
                 <h4 className="text-[10px] font-black text-orange-500 uppercase mb-3 flex items-center gap-2"><ExternalLink size={14}/> {t.googleSources}</h4>
                 <div className="space-y-2">
                   {analysis.sources.map((src, i) => (
-                    <a key={i} href={src.uri} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-slate-950/40 rounded-xl hover:bg-slate-950 transition-all">
+                    <a key={i} href={src.uri} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-slate-950/40 rounded-xl hover:bg-slate-950 transition-all border border-white/5">
                       <span className="text-[10px] text-slate-300 truncate w-3/4">{src.title}</span>
-                      <ExternalLink size={12} className="text-orange-400" />
+                      <ExternalLink size={12} className="text-orange-400 flex-shrink-0" />
                     </a>
                   ))}
                 </div>
