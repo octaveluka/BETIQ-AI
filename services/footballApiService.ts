@@ -1,3 +1,4 @@
+
 const API_KEY = '8fc116983517a0adaa7e23c8c688e56e3bce4429d6d87511d759b9ebfd53f564';
 const BASE_URL = 'https://apiv3.apifootball.com/';
 
@@ -41,12 +42,12 @@ export async function fetchMatchesByDate(date: string): Promise<ApiMatch[]> {
       'Champions League', 'Europa League', 'Conference League', 'Libertadores', 
       'CAF Champions', 'CONCACAF', 'FIFA Club World Cup', 'Premier League',
       'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Brasileirão', 'Liga MX',
-      'Major League Soccer', 'Primeira Liga', 'Eredivisie', 'World Cup', 'Euro',
+      'Major League Soccer', 'MLS', 'Primeira Liga', 'Eredivisie', 'World Cup', 'Euro',
       'Copa América', 'CAN', 'Cup of Nations', 'Asian Cup', 'Gold Cup', 
-      'Nations League', 'Copa del Rey', 'Coupe du Roi', 'King\'s Cup'
+      'Nations League', 'Copa del Rey', 'Coupe du Roi', 'King\'s Cup', 'African Nations'
     ];
 
-    const africanKeywords = ['Africa', 'CAN', 'CAF', 'Afrique'];
+    const africanKeywords = ['Africa', 'CAN', 'CAF', 'Afrique', 'Nations Cup'];
 
     return data.filter(m => {
       const name = m.league_name.toLowerCase();
@@ -54,8 +55,9 @@ export async function fetchMatchesByDate(date: string): Promise<ApiMatch[]> {
       
       const isRequested = Keywords.some(key => name.includes(key.toLowerCase()));
       const isAfrican = africanKeywords.some(key => name.includes(key.toLowerCase()) || country.includes(key.toLowerCase()));
-      const isMajorCountry = ['England', 'Spain', 'Italy', 'Germany', 'France', 'Brazil', 'Mexico', 'USA', 'Portugal', 'Netherlands'].includes(m.country_name);
+      const isMajorCountry = ['England', 'Spain', 'Italy', 'Germany', 'France', 'Brazil', 'Mexico', 'USA', 'Portugal', 'Netherlands', 'Spain'].includes(m.country_name);
       
+      // Force include CAN (League ID 28 usually) or any league with African keywords
       return isRequested || isAfrican || isMajorCountry || m.league_id === '28';
     });
 
