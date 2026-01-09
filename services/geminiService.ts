@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { FootballMatch, Confidence, BetType, Prediction, VipInsight } from "../types";
 
@@ -9,6 +10,7 @@ export interface AnalysisResult {
 }
 
 export async function generatePredictionsAndAnalysis(match: FootballMatch, language: string): Promise<AnalysisResult> {
+  // Use the API key from environment variables with correct initialization
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const homeStanding = match.homeTeamStats ? `${match.homeTeam} est ${match.homeTeamStats.standing}e avec ${match.homeTeamStats.points} pts` : 'N/A';
@@ -51,17 +53,75 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
   `;
 
   try {
+    // Calling gemini-3-pro-preview for complex reasoning task as per guidelines
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        temperature: 0, // Zéro pour une constance maximale
-        seed: 42 // Graine fixe pour des résultats identiques
+        // Recommended to use responseSchema for JSON output consistency
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            predictions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  type: { type: Type.STRING },
+                  recommendation: { type: Type.STRING },
+                  probability: { type: Type.NUMBER },
+                  confidence: { type: Type.STRING },
+                  odds: { type: Type.NUMBER }
+                },
+                required: ["type", "recommendation", "probability", "confidence", "odds"]
+              }
+            },
+            analysis: { type: Type.STRING },
+            vipInsight: {
+              type: Type.OBJECT,
+              properties: {
+                exactScores: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                },
+                keyFact: { type: Type.STRING },
+                detailedStats: {
+                  type: Type.OBJECT,
+                  properties: {
+                    corners: { type: Type.STRING },
+                    yellowCards: { type: Type.STRING },
+                    offsides: { type: Type.STRING },
+                    fouls: { type: Type.STRING },
+                    shots: { type: Type.STRING },
+                    shotsOnTarget: { type: Type.STRING },
+                    scorers: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          name: { type: Type.STRING },
+                          probability: { type: Type.NUMBER }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              required: ["exactScores", "keyFact"]
+            }
+          },
+          required: ["predictions", "analysis", "vipInsight"]
+        },
+        temperature: 0,
+        seed: 42
       }
     });
 
+    // Access .text property directly as per guidelines
     const rawText = response.text;
+    if (!rawText) throw new Error("No text returned from Gemini");
+    
     const jsonText = rawText.replace(/```json|```/g, "").trim();
     const data = JSON.parse(jsonText);
     
