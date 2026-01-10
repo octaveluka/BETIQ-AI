@@ -13,7 +13,8 @@ import {
 import { 
   Crown, Lock, LayoutGrid, Settings, ChevronLeft, Search,
   Loader2, RefreshCw, Zap, BrainCircuit, Trophy, Target, 
-  Globe, LogOut, ShieldCheck, Mail, Languages, ExternalLink
+  Globe, LogOut, ShieldCheck, Mail, Languages, ExternalLink,
+  Info
 } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
@@ -51,11 +52,11 @@ const DICTIONARY = {
     verify: "VÉRIFIER",
     logout: "Se déconnecter",
     vipActive: "ABONNEMENT ELITE ACTIF",
-    loadingAi: "Génération du Signal IA Exact...",
-    tacticalAnalysis: "Analyse Tactique Réelle",
-    advancedSignals: "Signaux Vérifiés",
-    probableScorers: "Buteurs (Lineups Réels)",
-    googleSources: "Sources de Vérification Google",
+    loadingAi: "IA en recherche Google (Vérification des effectifs réels)...",
+    tacticalAnalysis: "Analyse Tactique (Faits Vérifiés)",
+    advancedSignals: "Signaux Avancés",
+    probableScorers: "Buteurs Probables (Forme Actuelle)",
+    googleSources: "Preuves de Vérification (Sources Web)",
     iaUnlocked: "ANALYSE IA DÉBLOQUÉE",
     noMatches: "Aucun match trouvé pour ce jour/ligue",
     all: "Tous",
@@ -71,10 +72,11 @@ const DICTIONARY = {
     navSettings: "RÉGLAGES",
     maxConfidence: "CONFIANCE MAX",
     probaLabel: "PROBA",
-    corners: "Corners",
-    cards: "Cartons",
-    shots: "Tirs",
-    onTarget: "Cadrés"
+    statCorners: "Corners",
+    statCards: "Cartons",
+    statShots: "Tirs",
+    statOnTarget: "Cadrés",
+    sourceInfo: "Ces informations sont vérifiées en temps réel via Google Search."
   },
   EN: {
     freeTitle: "FREE PREDICTIONS",
@@ -91,11 +93,11 @@ const DICTIONARY = {
     verify: "VERIFY",
     logout: "Log Out",
     vipActive: "ELITE SUBSCRIPTION ACTIVE",
-    loadingAi: "Generating Exact AI Signal...",
-    tacticalAnalysis: "Real Tactical Analysis",
-    advancedSignals: "Verified Signals",
-    probableScorers: "Scorers (Real Lineups)",
-    googleSources: "Google Verification Sources",
+    loadingAi: "AI Google Search (Real Squad Verification)...",
+    tacticalAnalysis: "Tactical Analysis (Verified Facts)",
+    advancedSignals: "Advanced Signals",
+    probableScorers: "Probable Scorers (Current Form)",
+    googleSources: "Verification Proofs (Web Sources)",
     iaUnlocked: "AI ANALYSIS UNLOCKED",
     noMatches: "No matches found for this day/league",
     all: "All",
@@ -111,10 +113,11 @@ const DICTIONARY = {
     navSettings: "SETTINGS",
     maxConfidence: "MAX CONFIDENCE",
     probaLabel: "PROB",
-    corners: "Corners",
-    cards: "Cards",
-    shots: "Shots",
-    onTarget: "On Target"
+    statCorners: "Corners",
+    statCards: "Cards",
+    statShots: "Shots",
+    statOnTarget: "On Target",
+    sourceInfo: "This information is verified in real-time via Google Search."
   }
 };
 
@@ -371,6 +374,7 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
   return (
     <div className="pb-32 px-5 max-w-2xl mx-auto pt-6">
       <button onClick={() => navigate(-1)} className="p-3 bg-slate-900 rounded-2xl mb-6"><ChevronLeft size={20}/></button>
+      
       <div className="bg-gradient-to-br from-[#0b1121] to-[#151c30] rounded-[2.5rem] p-8 border border-white/5 shadow-2xl mb-8">
         <div className="flex justify-between items-center mb-10">
           <div className="text-center w-2/5 flex flex-col items-center gap-3">
@@ -387,21 +391,21 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
         {loading ? (
           <div className="flex flex-col items-center gap-4 py-10">
             <Loader2 className="animate-spin text-orange-500" size={32} />
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{t.loadingAi}</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 text-center px-4">{t.loadingAi}</p>
           </div>
         ) : analysis && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 gap-3">
               {analysis.predictions.map((p, i) => (
-                <div key={i} className="bg-slate-950/60 p-5 rounded-2xl border border-white/5 flex justify-between items-center">
+                <div key={i} className="bg-slate-950/60 p-5 rounded-2xl border border-white/5 flex justify-between items-center transition-all hover:bg-slate-950">
                   <div className="flex-1">
-                    <p className="text-[9px] font-black text-slate-500 uppercase mb-1">{p.type}</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">{p.type}</p>
                     <p className="text-sm font-black text-white">{p.recommendation}</p>
                   </div>
                   <div className="text-right flex flex-col items-end gap-1">
                     <ConfidenceIndicator level={p.confidence as Confidence} lang={language as Language} />
                     <div className="flex items-baseline gap-1">
-                       <p className="text-lg font-black text-blue-400">{p.probability}%</p>
+                       <p className="text-xl font-black text-blue-400">{p.probability}%</p>
                        <p className="text-[8px] font-black text-slate-500 uppercase">{t.probaLabel}</p>
                     </div>
                   </div>
@@ -409,39 +413,55 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
               ))}
             </div>
             
-            <div className="bg-blue-500/5 p-6 rounded-2xl border border-blue-500/20">
+            <div className="bg-blue-500/5 p-6 rounded-3xl border border-blue-500/20 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-3 opacity-10"><BrainCircuit size={40} /></div>
               <h4 className="text-[10px] font-black text-blue-400 uppercase mb-3 flex items-center gap-2"><Target size={14}/> {t.tacticalAnalysis}</h4>
-              <p className="text-xs leading-relaxed text-slate-300 italic">{analysis.analysis}</p>
+              <p className="text-xs leading-relaxed text-slate-300 italic font-medium">{analysis.analysis}</p>
             </div>
 
             {analysis.vipInsight.detailedStats && (
-              <div className="bg-slate-900/40 p-6 rounded-2xl border border-white/5 space-y-4">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase mb-2">{t.advancedSignals}</h4>
-                <div className="grid grid-cols-2 gap-4 text-[10px] font-bold">
-                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.corners}</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.corners}</span></div>
-                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.cards}</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.yellowCards}</span></div>
-                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.shots}</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.shots}</span></div>
-                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.onTarget}</span> <span className="text-orange-400">{analysis.vipInsight.detailedStats.shotsOnTarget}</span></div>
+              <div className="bg-slate-900/40 p-6 rounded-3xl border border-white/5 space-y-5">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2"><ShieldCheck size={14}/> {t.advancedSignals}</h4>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-[10px] font-bold">
+                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.statCorners}</span> <span className="text-orange-400 font-black">{analysis.vipInsight.detailedStats.corners}</span></div>
+                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.statCards}</span> <span className="text-orange-400 font-black">{analysis.vipInsight.detailedStats.yellowCards}</span></div>
+                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.statShots}</span> <span className="text-orange-400 font-black">{analysis.vipInsight.detailedStats.shots}</span></div>
+                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.statOnTarget}</span> <span className="text-orange-400 font-black">{analysis.vipInsight.detailedStats.shotsOnTarget}</span></div>
                 </div>
-                <div className="mt-4">
-                  <p className="text-[9px] font-black text-slate-500 uppercase mb-2">{t.probableScorers}</p>
-                  {analysis.vipInsight.detailedStats.scorers.map((s, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-slate-950/40 p-2 rounded-lg mb-1">
-                      <span className="text-xs text-white font-bold">{s.name}</span>
-                      <span className="text-xs text-blue-400 font-black">{s.probability}%</span>
-                    </div>
-                  ))}
+                <div>
+                  <p className="text-[9px] font-black text-slate-500 uppercase mb-3">{t.probableScorers}</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {analysis.vipInsight.detailedStats.scorers.map((s, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-slate-950/40 p-3 rounded-xl border border-white/5">
+                        <span className="text-xs text-white font-bold">{s.name}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500" style={{ width: `${s.probability}%` }}></div>
+                          </div>
+                          <span className="text-[10px] text-blue-400 font-black">{s.probability}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
 
             {analysis.sources && analysis.sources.length > 0 && (
-              <div className="bg-orange-500/5 p-6 rounded-2xl border border-orange-500/20">
-                <h4 className="text-[10px] font-black text-orange-500 uppercase mb-3 flex items-center gap-2"><ExternalLink size={14}/> {t.googleSources}</h4>
+              <div className="bg-orange-500/5 p-6 rounded-3xl border border-orange-500/20">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-[10px] font-black text-orange-500 uppercase flex items-center gap-2"><ExternalLink size={14}/> {t.googleSources}</h4>
+                  <div className="group relative">
+                    <Info size={12} className="text-slate-500 cursor-help" />
+                    <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-slate-900 text-[8px] text-slate-400 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity border border-white/10 pointer-events-none z-50">
+                      {t.sourceInfo}
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   {analysis.sources.map((src, i) => (
-                    <a key={i} href={src.uri} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-slate-950/40 rounded-xl hover:bg-slate-950 transition-all border border-white/5">
-                      <span className="text-[10px] text-slate-300 truncate w-3/4">{src.title}</span>
+                    <a key={i} href={src.uri} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-slate-950/40 rounded-xl hover:bg-slate-950 transition-all border border-white/5 group">
+                      <span className="text-[10px] text-slate-300 truncate w-3/4 group-hover:text-white transition-colors">{src.title}</span>
                       <ExternalLink size={12} className="text-orange-400 flex-shrink-0" />
                     </a>
                   ))}

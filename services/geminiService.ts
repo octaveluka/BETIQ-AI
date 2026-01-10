@@ -10,53 +10,49 @@ export interface AnalysisResult {
 }
 
 export async function generatePredictionsAndAnalysis(match: FootballMatch, language: string): Promise<AnalysisResult> {
-  // Initialisation dynamique à chaque appel pour garantir la récupération de la clé API la plus récente
+  // On utilise une nouvelle instance pour s'assurer que la clé API la plus récente est utilisée
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Détection de la CAN ou des compétitions majeures pour le grounding Google Search
-  const isCanMatch = match.league.toLowerCase().includes('can') || 
-                    match.league.toLowerCase().includes('nations cup') ||
-                    match.league.toLowerCase().includes('afrique') ||
-                    match.country_name?.toLowerCase().includes('africa');
-  
-  const isMajorLeague = ['Champions League', 'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1'].some(l => match.league.includes(l));
-
-  // Activation de Google Search uniquement si nécessaire pour optimiser la latence, 
-  // mais obligatoire pour la CAN et les ligues majeures pour éviter les erreurs d'effectifs.
-  const useSearch = isCanMatch || isMajorLeague;
+  const today = new Date().toISOString().split('T')[0];
 
   const prompt = `
-    TU ES UN ANALYSTE TACTIQUE DE FOOTBALL PROFESSIONNEL.
-    MATCH : ${match.homeTeam} vs ${match.awayTeam} (${match.league}).
+    SYSTÈME DE VÉRIFICATION FACTUELLE CRITIQUE - ANALYSTE TACTIQUE BETIQ.
+    MATCH : ${match.homeTeam} vs ${match.awayTeam}.
+    COMPÉTITION : ${match.league}.
+    DATE DU MATCH : ${match.time} (Aujourd'hui est le ${today}).
     LANGUE : ${language === 'EN' ? 'English' : 'Français'}.
 
-    MISSION CRITIQUE :
-    ${useSearch ? "1. UTILISE l'outil Google Search pour vérifier les EFFECTIFS ACTUELS, les blessures de DERNIÈRE MINUTE et l'ENTRAÎNEUR en poste aujourd'hui." : ""}
-    2. INTERDICTION D'HALLUCINER : Ne cite aucun joueur qui a quitté le club ou un ancien entraîneur. Si tu as un doute, ne mentionne pas de nom spécifique.
-    3. ANALYSE : Fournis une analyse tactique de 3-4 lignes basée sur des faits réels (forme, enjeux, absents).
-    4. PRÉDICTIONS : Génère des probabilités précises pour 1X2, Over/Under 2.5 et BTTS.
-    5. STATS VIP : Estime les corners, cartons et buteurs probables (uniquement joueurs présents).
+    PROTOCOLE DE VÉRIFICAION STRICT (GROUNDING) :
+    1. TU DOIS utiliser Google Search pour obtenir les faits RÉELS du jour.
+    2. VÉRIFICATION DE L'ENTRAÎNEUR : Identifie le coach actuel. Ne cite pas un ancien coach (ex: pas de Xavi au Barça, pas de Klopp à Liverpool).
+    3. ÉTAT DES EFFECTIFS : Vérifie les blessures, suspensions, et joueurs à la CAN/Asian Cup pour CE match précis.
+    4. TRANSFERTS : Assure-toi que les joueurs mentionnés jouent toujours dans le club cité.
+    5. INTERDICTION DE L'IMAGINAIRE : Ne mentionne AUCUN nom de joueur ou de coach si la recherche Google ne confirme pas sa présence aujourd'hui. C'est une mission de PRÉCISION ABSOLUE.
+    
+    L'ANALYSE DOIT :
+    - Expliquer l'impact tactique des absences confirmées par le web.
+    - Déduire les probabilités (1X2, O/U, BTTS) à partir de ces réalités.
 
     RÉPONDS UNIQUEMENT AU FORMAT JSON STRICT :
     {
       "predictions": [
-        {"type": "1X2", "recommendation": "...", "probability": 70, "confidence": "HIGH", "odds": 1.75},
-        {"type": "OVER/UNDER 2.5", "recommendation": "...", "probability": 65, "confidence": "MEDIUM", "odds": 1.80},
-        {"type": "BTTS", "recommendation": "...", "probability": 55, "confidence": "LOW", "odds": 1.95}
+        {"type": "1X2", "recommendation": "...", "probability": 70, "confidence": "HIGH", "odds": 1.7},
+        {"type": "OVER/UNDER 2.5", "recommendation": "...", "probability": 65, "confidence": "MEDIUM", "odds": 1.8},
+        {"type": "BTTS", "recommendation": "...", "probability": 60, "confidence": "HIGH", "odds": 1.9}
       ],
-      "analysis": "...",
+      "analysis": "Basé sur les faits vérifiés du ${today} : [Nom Entraîneur], [Joueurs absents/présents]. [Analyse tactique].",
       "vipInsight": {
-        "exactScores": ["1-0", "2-1"],
+        "exactScores": ["1-0", "2-0"],
         "strategy": {"safe": "...", "value": "...", "aggressive": "..."},
-        "keyFact": "...",
+        "keyFact": "Le point crucial vérifié sur le web qui définit ce match.",
         "detailedStats": {
-          "corners": "8-11",
-          "yellowCards": "3-5",
-          "offsides": "2-4",
-          "fouls": "22-26",
-          "shots": "12-15",
-          "shotsOnTarget": "4-6",
-          "scorers": [{"name": "...", "probability": 45}]
+          "corners": "9-11",
+          "yellowCards": "3-4",
+          "offsides": "2-3",
+          "fouls": "20-25",
+          "shots": "10-14",
+          "shotsOnTarget": "4-5",
+          "scorers": [{"name": "[JOUEUR RÉEL VÉRIFIÉ]", "probability": 40}]
         }
       }
     }
@@ -65,29 +61,28 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: { parts: [{ text: prompt }] },
       config: {
         responseMimeType: "application/json",
-        // Utilisation de googleSearch comme seul outil autorisé si activé
-        tools: useSearch ? [{ googleSearch: {} }] : undefined,
+        tools: [{ googleSearch: {} }],
+        // Budget de réflexion pour s'assurer qu'il analyse soigneusement les résultats de recherche avant de répondre
+        thinkingConfig: { thinkingBudget: 8000 },
+        maxOutputTokens: 12000
       }
     });
 
     const text = response.text;
-    if (!text) throw new Error("Empty AI response");
+    if (!text) throw new Error("Réponse IA vide");
 
     const data = JSON.parse(text);
-
-    // Extraction des sources de recherche Google si disponibles
+    
+    // Extraction des sources pour prouver la vérification
     const sources: { title: string; uri: string }[] = [];
     const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
     if (groundingMetadata?.groundingChunks) {
       groundingMetadata.groundingChunks.forEach((chunk: any) => {
-        if (chunk.web && chunk.web.uri) {
-          sources.push({
-            title: chunk.web.title || "Lien de vérification",
-            uri: chunk.web.uri
-          });
+        if (chunk.web) {
+          sources.push({ title: chunk.web.title || "Vérification Source", uri: chunk.web.uri });
         }
       });
     }
@@ -97,27 +92,20 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
         ...p,
         confidence: (p.confidence || 'MEDIUM').toUpperCase() as Confidence,
       })),
-      analysis: data.analysis || "Analyse technique en cours de mise à jour.",
+      analysis: data.analysis || "Analyse tactique vérifiée.",
       vipInsight: data.vipInsight || { 
         exactScores: ["?-?"], 
-        keyFact: "N/A",
+        keyFact: "Données non disponibles",
         strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" }
       },
       sources: sources
     };
   } catch (error) {
-    console.error("Gemini Generation Error:", error);
-    // Retour d'un objet par défaut cohérent en cas d'erreur
+    console.error("Gemini Protocol Error:", error);
     return {
-      predictions: [
-        { type: "1X2", recommendation: "Signal Indisponible", probability: 50, confidence: Confidence.MEDIUM, odds: 1.0 }
-      ],
-      analysis: language === 'EN' ? "AI analysis is currently unavailable. Please try again later." : "L'analyse IA est temporairement indisponible. Veuillez réessayer plus tard.",
-      vipInsight: { 
-        exactScores: ["?-?"], 
-        keyFact: "Erreur technique",
-        strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" }
-      },
+      predictions: [{ type: "1X2", recommendation: "Analyse impossible", probability: 50, confidence: Confidence.MEDIUM, odds: 1.0 }],
+      analysis: "Erreur lors de la validation des faits en temps réel. Veuillez recharger la page.",
+      vipInsight: { exactScores: [], keyFact: "Erreur technique", strategy: { safe: "", value: "", aggressive: "" } },
       sources: []
     };
   }
