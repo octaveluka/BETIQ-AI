@@ -9,104 +9,130 @@ export interface AnalysisResult {
   sources: { title: string; uri: string }[];
 }
 
-export async function generatePredictionsAndAnalysis(match: FootballMatch, language: string): Promise<AnalysisResult> {
-  // On utilise une nouvelle instance pour s'assurer que la clé API la plus récente est utilisée
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+/**
+ * Appelle l'API personnalisée Delfaapiai
+ */
+async function callCustomApi(prompt: string): Promise<any> {
+  const url = `https://delfaapiai.vercel.app/ai/copilot?message=${encodeURIComponent(prompt)}&model=default`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Custom API Error");
   
-  const today = new Date().toISOString().split('T')[0];
+  const text = await response.text();
+  // L'API peut renvoyer du texte brut contenant du JSON ou juste le JSON.
+  // On tente d'extraire le JSON si besoin.
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    return JSON.parse(jsonMatch ? jsonMatch[0] : text);
+  } catch (e) {
+    throw new Error("Invalid JSON from Custom API");
+  }
+}
 
+/**
+ * Appelle Gemini 3 Flash Preview avec Google Search comme fallback
+ */
+async function callGeminiFallback(prompt: string): Promise<{ data: any, sources: any[] }> {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: { parts: [{ text: prompt }] },
+    config: {
+      responseMimeType: "application/json",
+      tools: [{ googleSearch: {} }],
+      thinkingConfig: { thinkingBudget: 8000 },
+    }
+  });
+
+  const text = response.text;
+  if (!text) throw new Error("Gemini Fallback Empty");
+  
+  const data = JSON.parse(text);
+  const sources: any[] = [];
+  const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+  if (groundingMetadata?.groundingChunks) {
+    groundingMetadata.groundingChunks.forEach((chunk: any) => {
+      if (chunk.web) sources.push({ title: chunk.web.title || "Vérification Web", uri: chunk.web.uri });
+    });
+  }
+  return { data, sources };
+}
+
+export async function generatePredictionsAndAnalysis(match: FootballMatch, language: string): Promise<AnalysisResult> {
+  const today = new Date().toISOString().split('T')[0];
   const prompt = `
-    SYSTÈME DE VÉRIFICATION FACTUELLE CRITIQUE - ANALYSTE TACTIQUE BETIQ.
+    SYSTÈME EXPERT BETIQ - PRONOSTICS FOOTBALL.
     MATCH : ${match.homeTeam} vs ${match.awayTeam}.
-    COMPÉTITION : ${match.league}.
-    DATE DU MATCH : ${match.time} (Aujourd'hui est le ${today}).
+    LIGUE : ${match.league}.
+    DATE : ${match.time} (Aujourd'hui: ${today}).
     LANGUE : ${language === 'EN' ? 'English' : 'Français'}.
 
-    PROTOCOLE DE VÉRIFICAION STRICT (GROUNDING) :
-    1. TU DOIS utiliser Google Search pour obtenir les faits RÉELS du jour.
-    2. VÉRIFICATION DE L'ENTRAÎNEUR : Identifie le coach actuel. Ne cite pas un ancien coach (ex: pas de Xavi au Barça, pas de Klopp à Liverpool).
-    3. ÉTAT DES EFFECTIFS : Vérifie les blessures, suspensions, et joueurs à la CAN/Asian Cup pour CE match précis.
-    4. TRANSFERTS : Assure-toi que les joueurs mentionnés jouent toujours dans le club cité.
-    5. INTERDICTION DE L'IMAGINAIRE : Ne mentionne AUCUN nom de joueur ou de coach si la recherche Google ne confirme pas sa présence aujourd'hui. C'est une mission de PRÉCISION ABSOLUE.
-    
-    L'ANALYSE DOIT :
-    - Expliquer l'impact tactique des absences confirmées par le web.
-    - Déduire les probabilités (1X2, O/U, BTTS) à partir de ces réalités.
+    MISSION : Produire une analyse tactique et des prédictions (1X2, O/U 2.5, BTTS) basées sur l'état réel des effectifs (entraîneurs, blessés, transferts).
 
-    RÉPONDS UNIQUEMENT AU FORMAT JSON STRICT :
+    FORMAT JSON STRICT :
     {
       "predictions": [
         {"type": "1X2", "recommendation": "...", "probability": 70, "confidence": "HIGH", "odds": 1.7},
         {"type": "OVER/UNDER 2.5", "recommendation": "...", "probability": 65, "confidence": "MEDIUM", "odds": 1.8},
         {"type": "BTTS", "recommendation": "...", "probability": 60, "confidence": "HIGH", "odds": 1.9}
       ],
-      "analysis": "Basé sur les faits vérifiés du ${today} : [Nom Entraîneur], [Joueurs absents/présents]. [Analyse tactique].",
+      "analysis": "...",
       "vipInsight": {
-        "exactScores": ["1-0", "2-0"],
+        "exactScores": ["1-0", "2-1"],
         "strategy": {"safe": "...", "value": "...", "aggressive": "..."},
-        "keyFact": "Le point crucial vérifié sur le web qui définit ce match.",
+        "keyFact": "...",
         "detailedStats": {
-          "corners": "9-11",
-          "yellowCards": "3-4",
-          "offsides": "2-3",
-          "fouls": "20-25",
-          "shots": "10-14",
-          "shotsOnTarget": "4-5",
-          "scorers": [{"name": "[JOUEUR RÉEL VÉRIFIÉ]", "probability": 40}]
+          "corners": "...", "yellowCards": "...", "offsides": "...", "fouls": "...", "shots": "...", "shotsOnTarget": "...",
+          "scorers": [{"name": "...", "probability": 40}]
         }
       }
     }
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: { parts: [{ text: prompt }] },
-      config: {
-        responseMimeType: "application/json",
-        tools: [{ googleSearch: {} }],
-        // Budget de réflexion pour s'assurer qu'il analyse soigneusement les résultats de recherche avant de répondre
-        thinkingConfig: { thinkingBudget: 8000 },
-        maxOutputTokens: 12000
-      }
-    });
-
-    const text = response.text;
-    if (!text) throw new Error("Réponse IA vide");
-
-    const data = JSON.parse(text);
+    // 1. Priorité à l'API Custom
+    console.log("Calling Custom API...");
+    const data = await callCustomApi(prompt);
     
-    // Extraction des sources pour prouver la vérification
-    const sources: { title: string; uri: string }[] = [];
-    const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
-    if (groundingMetadata?.groundingChunks) {
-      groundingMetadata.groundingChunks.forEach((chunk: any) => {
-        if (chunk.web) {
-          sources.push({ title: chunk.web.title || "Vérification Source", uri: chunk.web.uri });
-        }
-      });
-    }
-
     return {
       predictions: (data.predictions || []).map((p: any) => ({
         ...p,
         confidence: (p.confidence || 'MEDIUM').toUpperCase() as Confidence,
       })),
-      analysis: data.analysis || "Analyse tactique vérifiée.",
+      analysis: data.analysis || "Analyse fournie par l'API principale.",
       vipInsight: data.vipInsight || { 
         exactScores: ["?-?"], 
-        keyFact: "Données non disponibles",
+        keyFact: "N/A",
         strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" }
       },
-      sources: sources
+      sources: [] // L'API custom est supposée déjà vérifiée
     };
   } catch (error) {
-    console.error("Gemini Protocol Error:", error);
-    return {
-      predictions: [{ type: "1X2", recommendation: "Analyse impossible", probability: 50, confidence: Confidence.MEDIUM, odds: 1.0 }],
-      analysis: "Erreur lors de la validation des faits en temps réel. Veuillez recharger la page.",
-      vipInsight: { exactScores: [], keyFact: "Erreur technique", strategy: { safe: "", value: "", aggressive: "" } },
-      sources: []
-    };
+    console.error("Custom API failed, falling back to Gemini 3 Flash Preview:", error);
+    
+    // 2. Fallback vers Gemini 3 Flash Preview avec Google Search
+    try {
+      const { data, sources } = await callGeminiFallback(prompt);
+      return {
+        predictions: (data.predictions || []).map((p: any) => ({
+          ...p,
+          confidence: (p.confidence || 'MEDIUM').toUpperCase() as Confidence,
+        })),
+        analysis: data.analysis || "Analyse de secours via Gemini.",
+        vipInsight: data.vipInsight || { 
+          exactScores: ["?-?"], 
+          keyFact: "N/A",
+          strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" }
+        },
+        sources: sources
+      };
+    } catch (fallbackError) {
+      console.error("Both APIs failed:", fallbackError);
+      return {
+        predictions: [{ type: "1X2", recommendation: "Service indisponible", probability: 50, confidence: Confidence.MEDIUM, odds: 1.0 }],
+        analysis: "Erreur de connexion aux serveurs d'analyse. Réessayez plus tard.",
+        vipInsight: { exactScores: [], keyFact: "N/A", strategy: { safe: "", value: "", aggressive: "" } },
+        sources: []
+      };
+    }
   }
 }
