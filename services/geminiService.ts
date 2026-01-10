@@ -10,93 +10,83 @@ export interface AnalysisResult {
 }
 
 /**
- * Prompt standard partagé entre l'API Custom et Gemini pour une cohérence maximale.
- * Ce prompt demande explicitement un JSON pur pour faciliter le parsing.
+ * Prompt d'expertise partagé pour une cohérence totale entre les modèles.
  */
-const getDetailedPrompt = (match: FootballMatch, language: string, today: string) => `
-    TU ES UN EXPERT EN PRONOSTICS FOOTBALL DE HAUT NIVEAU.
-    MATCH : ${match.homeTeam} VS ${match.awayTeam}.
-    LIGUE : ${match.league}.
-    DATE DU MATCH : ${match.time} (Aujourd'hui : ${today}).
-    LANGUE : ${language === 'EN' ? 'English' : 'Français'}.
+const getSystemPrompt = (match: FootballMatch, language: string, today: string) => `
+    TU ES L'IA DE PRONOSTICS BETIQ. ANALYSE EXPERTE REQUISE.
+    MATCH : ${match.homeTeam} VS ${match.awayTeam}
+    LIGUE : ${match.league}
+    DATE : ${match.time} (Aujourd'hui : ${today})
+    LANGUE : ${language === 'EN' ? 'English' : 'Français'}
 
-    MISSION : Analyser le match et fournir des prédictions précises.
-    IMPORTANT : Vérifie les entraîneurs actuels et les effectifs réels (blessés, suspendus, CAN).
+    CONSIGNES :
+    - Analyse tactique basée sur les 5 derniers matchs et les confrontations directes.
+    - Vérifie impérativement les absences (blessés, suspendus, sélections nationales).
+    - Fournis des prédictions (1X2, O/U 2.5, BTTS) avec probabilités et cotes estimées.
+    - Ajoute des insights VIP : scores exacts probables et buteurs.
 
-    RÉPONDS UNIQUEMENT PAR UN OBJET JSON VALIDE SANS AUCUN AUTRE TEXTE.
-    STRUCTURE DU JSON :
+    RÉPONDS EXCLUSIVEMENT AU FORMAT JSON SUIVANT :
     {
       "predictions": [
-        {"type": "1X2", "recommendation": "Ex: Victoire Domicile", "probability": 70, "confidence": "HIGH", "odds": 1.7},
-        {"type": "OVER/UNDER 2.5", "recommendation": "Ex: +2.5 buts", "probability": 65, "confidence": "MEDIUM", "odds": 1.8},
-        {"type": "BTTS", "recommendation": "Ex: Oui", "probability": 60, "confidence": "HIGH", "odds": 1.9}
+        {"type": "1X2", "recommendation": "Gagnant 1", "probability": 70, "confidence": "HIGH", "odds": 1.75},
+        {"type": "OVER/UNDER 2.5", "recommendation": "+2.5 buts", "probability": 65, "confidence": "MEDIUM", "odds": 1.80},
+        {"type": "BTTS", "recommendation": "Oui", "probability": 60, "confidence": "HIGH", "odds": 1.90}
       ],
-      "analysis": "Texte d'analyse tactique de 3-4 lignes.",
+      "analysis": "Analyse tactique détaillée de 4 lignes maximum.",
       "vipInsight": {
-        "exactScores": ["1-0", "2-1"],
+        "exactScores": ["2-1", "1-0"],
         "strategy": {"safe": "Libellé", "value": "Libellé", "aggressive": "Libellé"},
-        "keyFact": "Le fait majeur du match.",
+        "keyFact": "Le fait déterminant du match.",
         "detailedStats": {
-          "corners": "8-10",
-          "yellowCards": "3-5",
-          "offsides": "2-4",
-          "fouls": "22-26",
-          "shots": "12-15",
-          "shotsOnTarget": "4-6",
-          "scorers": [{"name": "Nom du joueur", "probability": 45}]
+          "corners": "8-10", "yellowCards": "3-5", "offsides": "2-4", "fouls": "20-25", "shots": "12-15", "shotsOnTarget": "4-6",
+          "scorers": [{"name": "Nom Joueur", "probability": 45}]
         }
       }
     }
 `;
 
 /**
- * Nettoie et extrait le JSON d'une chaîne de texte potentiellement polluée par du Markdown.
+ * Extrait le JSON de n'importe quel texte brut renvoyé par l'API.
  */
-function extractAndParseJson(text: string) {
+function robustParse(text: string) {
   try {
-    // Supprime les balises Markdown ```json et ```
-    const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("Aucun bloc JSON trouvé dans la réponse");
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("Format JSON introuvable");
     return JSON.parse(jsonMatch[0]);
   } catch (e) {
-    console.error("Erreur de parsing JSON. Texte reçu :", text);
-    throw new Error("Format de réponse invalide");
+    console.error("Erreur de parsing critique:", e, "Texte reçu:", text);
+    throw e;
   }
 }
 
 /**
- * Appelle l'API personnalisée Delfaapiai via POST (Priorité 1)
+ * Appel prioritaire à l'API personnalisée Delfaapiai
  */
 async function callCustomApi(match: FootballMatch, language: string): Promise<any> {
   const today = new Date().toISOString().split('T')[0];
-  const prompt = getDetailedPrompt(match, language, today);
-  
+  const prompt = getSystemPrompt(match, language, today);
+
   const response = await fetch("https://delfaapiai.vercel.app/ai/copilot", {
     method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       message: prompt,
       model: "default"
     })
   });
 
-  if (!response.ok) throw new Error(`Custom API HTTP Error: ${response.status}`);
-  
+  if (!response.ok) throw new Error(`API Custom indisponible: ${response.status}`);
   const text = await response.text();
-  return extractAndParseJson(text);
+  return robustParse(text);
 }
 
 /**
- * Fallback vers Gemini 3 Flash Preview avec recherche Google (Priorité 2)
+ * Appel de secours à Gemini 3 Flash Preview avec recherche Web
  */
 async function callGeminiFallback(match: FootballMatch, language: string): Promise<{ data: any, sources: any[] }> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const today = new Date().toISOString().split('T')[0];
-  const prompt = getDetailedPrompt(match, language, today);
+  const prompt = getSystemPrompt(match, language, today);
 
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -104,12 +94,12 @@ async function callGeminiFallback(match: FootballMatch, language: string): Promi
     config: {
       responseMimeType: "application/json",
       tools: [{ googleSearch: {} }],
-      thinkingConfig: { thinkingBudget: 8000 }
+      thinkingConfig: { thinkingBudget: 4000 }
     }
   });
 
   const text = response.text;
-  if (!text) throw new Error("Gemini Fallback a renvoyé une réponse vide");
+  if (!text) throw new Error("Gemini a renvoyé une réponse vide");
   
   const data = JSON.parse(text);
   const sources: any[] = [];
@@ -117,73 +107,54 @@ async function callGeminiFallback(match: FootballMatch, language: string): Promi
   
   if (groundingMetadata?.groundingChunks) {
     groundingMetadata.groundingChunks.forEach((chunk: any) => {
-      if (chunk.web) {
-        sources.push({ 
-          title: chunk.web.title || "Vérification Source", 
-          uri: chunk.web.uri 
-        });
-      }
+      if (chunk.web) sources.push({ title: chunk.web.title || "Source", uri: chunk.web.uri });
     });
   }
   return { data, sources };
 }
 
-/**
- * Fonction principale d'orchestration de l'analyse
- */
 export async function generatePredictionsAndAnalysis(match: FootballMatch, language: string): Promise<AnalysisResult> {
   try {
-    // TENTATIVE 1 : API PERSONNALISÉE (Delfaapiai)
-    console.log("BETIQ: Appel de l'API personnalisée...");
+    // 1. PRIORITÉ : API PERSONNALISÉE
     const data = await callCustomApi(match, language);
-    console.log("BETIQ: Réponse API personnalisée reçue avec succès.");
-    
     return {
       predictions: (data.predictions || []).map((p: any) => ({
         ...p,
         confidence: (p.confidence || 'MEDIUM').toUpperCase() as Confidence,
       })),
-      analysis: data.analysis || "Analyse technique générée.",
+      analysis: data.analysis || "Analyse technique effectuée par BETIQ AI.",
       vipInsight: data.vipInsight || { 
-        exactScores: ["?-?"], 
-        keyFact: "Données basées sur les statistiques récentes.",
-        strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" }
+        exactScores: [], 
+        keyFact: "N/A",
+        strategy: { safe: "", value: "", aggressive: "" }
       },
-      sources: [] 
+      sources: []
     };
   } catch (error) {
-    console.warn("BETIQ: L'API personnalisée a échoué. Tentative de secours avec Gemini 3 Flash Preview.", error);
+    console.warn("Échec de l'API personnalisée, tentative avec Gemini...", error);
     
-    // TENTATIVE 2 : GEMINI 3 FLASH PREVIEW (Fallback)
+    // 2. SECOURS : GEMINI
     try {
       const { data, sources } = await callGeminiFallback(match, language);
-      console.log("BETIQ: Réponse Gemini reçue avec succès.");
-      
       return {
         predictions: (data.predictions || []).map((p: any) => ({
           ...p,
           confidence: (p.confidence || 'MEDIUM').toUpperCase() as Confidence,
         })),
-        analysis: data.analysis || "Analyse de secours via IA.",
+        analysis: data.analysis || "Analyse de secours via intelligence artificielle.",
         vipInsight: data.vipInsight || { 
-          exactScores: ["?-?"], 
-          keyFact: "Vérification des faits via recherche Google effectuée.",
-          strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" }
+          exactScores: [], 
+          keyFact: "Vérifié par recherche web.",
+          strategy: { safe: "", value: "", aggressive: "" }
         },
         sources: sources
       };
     } catch (fallbackError) {
-      console.error("BETIQ: Échec total des services d'analyse.", fallbackError);
+      console.error("Échec critique des deux sources d'IA.", fallbackError);
       return {
-        predictions: [
-          { type: "1X2", recommendation: "Service indisponible", probability: 50, confidence: Confidence.MEDIUM, odds: 1.0 }
-        ],
-        analysis: "Désolé, nos serveurs d'intelligence artificielle ne répondent pas. Veuillez réessayer dans un instant.",
-        vipInsight: { 
-          exactScores: [], 
-          keyFact: "Problème technique temporaire.", 
-          strategy: { safe: "", value: "", aggressive: "" } 
-        },
+        predictions: [{ type: "1X2", recommendation: "Service indisponible", probability: 50, confidence: Confidence.MEDIUM, odds: 1.0 }],
+        analysis: "Désolé, nos moteurs d'analyse sont actuellement surchargés. Réessayez dans un instant.",
+        vipInsight: { exactScores: [], keyFact: "Erreur technique", strategy: { safe: "", value: "", aggressive: "" } },
         sources: []
       };
     }
