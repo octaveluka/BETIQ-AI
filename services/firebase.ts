@@ -1,3 +1,5 @@
+
+// Fix: Consolidate modular Firebase imports to resolve "no exported member" errors
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
@@ -11,6 +13,7 @@ const firebaseConfig = {
   measurementId: "G-K22TJ6FT6T"
 };
 
+// Fix: Ensure single initialization using standard modular API
 // Initialisation unique de l'application
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 

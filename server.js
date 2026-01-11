@@ -28,9 +28,15 @@ const getDetailedPrompt = (match, language, today) => `
     TU DOIS RÉPONDRE UNIQUEMENT PAR UN OBJET JSON VALIDE AU FORMAT SUIVANT :
     {
       "predictions": [
-        {"type": "1X2", "recommendation": "Ex: Victoire Domicile", "probability": 70, "confidence": "HIGH", "odds": 1.7},
-        {"type": "OVER/UNDER 2.5", "recommendation": "Ex: +2.5 buts", "probability": 65, "confidence": "MEDIUM", "odds": 1.8},
-        {"type": "BTTS", "recommendation": "Ex: Oui", "probability": 60, "confidence": "HIGH", "odds": 1.9}
+        {"type": "1X2", "recommendation": "Victoire Domicile/Nul", "probability": 75, "confidence": "HIGH", "odds": 1.45},
+        {"type": "OVER/UNDER 2.5", "recommendation": "+2.5 buts", "probability": 65, "confidence": "MEDIUM", "odds": 1.8},
+        {"type": "BTTS", "recommendation": "Oui", "probability": 60, "confidence": "HIGH", "odds": 1.9},
+        {"type": "CORNERS", "recommendation": "+8.5 corners", "probability": 70, "confidence": "MEDIUM", "odds": 1.6},
+        {"type": "CARTONS", "recommendation": "+3.5 cartons", "probability": 65, "confidence": "HIGH", "odds": 1.75},
+        {"type": "TIRS CADRÉS", "recommendation": "+9.5 tirs cadrés", "probability": 60, "confidence": "MEDIUM", "odds": 1.85},
+        {"type": "HORS-JEU", "recommendation": "+3.5 hors-jeu", "probability": 55, "confidence": "LOW", "odds": 2.1},
+        {"type": "FAUTES", "recommendation": "+22.5 fautes", "probability": 70, "confidence": "HIGH", "odds": 1.65},
+        {"type": "TOUCHES", "recommendation": "+35.5 touches", "probability": 65, "confidence": "MEDIUM", "odds": 1.7}
       ],
       "analysis": "Analyse de 3-4 lignes.",
       "vipInsight": {
@@ -38,7 +44,13 @@ const getDetailedPrompt = (match, language, today) => `
         "strategy": {"safe": "Libellé", "value": "Libellé", "aggressive": "Libellé"},
         "keyFact": "Le fait majeur du match.",
         "detailedStats": {
-          "corners": "8-10", "yellowCards": "3-5", "offsides": "2-4", "fouls": "20-25", "shots": "12-15", "shotsOnTarget": "4-6",
+          "corners": "8-10", 
+          "yellowCards": "3-5", 
+          "offsides": "2-4", 
+          "fouls": "20-25", 
+          "shots": "12-15", 
+          "shotsOnTarget": "4-6",
+          "throwIns": "38-42",
           "scorers": [{"name": "Nom", "probability": 40}]
         }
       }

@@ -1,28 +1,17 @@
 
 import { auth } from './services/firebase';
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  HashRouter, 
-  Routes, 
-  Route, 
-  Link, 
-  useLocation, 
-  useNavigate, 
-  Navigate 
-} from 'react-router-dom';
+// Fix: Consolidate react-router-dom imports to resolve "no exported member" errors in some TypeScript environments
+import { HashRouter, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { 
   Crown, Lock, LayoutGrid, Settings, ChevronLeft, Search,
   Loader2, RefreshCw, Zap, BrainCircuit, Trophy, Target, 
   Globe, LogOut, ShieldCheck, Mail, Languages, ExternalLink,
   Info
 } from 'lucide-react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  onAuthStateChanged, 
-  signOut,
-  User as FirebaseUser 
-} from "firebase/auth";
+// Fix: Consolidate firebase/auth imports and use 'import type' for User to resolve member errors
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
+import type { User as FirebaseUser } from "firebase/auth";
 
 import { FootballMatch, Confidence, Language } from './types';
 import { MatchCard } from './components/MatchCard';
@@ -74,8 +63,11 @@ const DICTIONARY = {
     probaLabel: "PROBA",
     statCorners: "Corners",
     statCards: "Cartons",
-    statShots: "Tirs",
-    statOnTarget: "Cadrés",
+    statShots: "Nb. de tirs durant le match",
+    statOnTarget: "Tirs cadrés",
+    statOffsides: "Hors-jeu",
+    statFouls: "Fautes",
+    statThrowIns: "Touches",
     sourceInfo: "Ces informations sont vérifiées en temps réel via Google Search."
   },
   EN: {
@@ -115,8 +107,11 @@ const DICTIONARY = {
     probaLabel: "PROB",
     statCorners: "Corners",
     statCards: "Cards",
-    statShots: "Shots",
-    statOnTarget: "On Target",
+    statShots: "Number of shots during match",
+    statOnTarget: "Shots on target",
+    statOffsides: "Offsides",
+    statFouls: "Fouls",
+    statThrowIns: "Throw-ins",
     sourceInfo: "This information is verified in real-time via Google Search."
   }
 };
@@ -422,11 +417,16 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
             {analysis.vipInsight.detailedStats && (
               <div className="bg-slate-900/40 p-6 rounded-3xl border border-white/5 space-y-5">
                 <h4 className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2"><ShieldCheck size={14}/> {t.advancedSignals}</h4>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-[10px] font-bold">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-[10px] font-bold">
                   <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.statCorners}</span> <span className="text-orange-400 font-black">{analysis.vipInsight.detailedStats.corners}</span></div>
                   <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.statCards}</span> <span className="text-orange-400 font-black">{analysis.vipInsight.detailedStats.yellowCards}</span></div>
                   <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.statShots}</span> <span className="text-orange-400 font-black">{analysis.vipInsight.detailedStats.shots}</span></div>
                   <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.statOnTarget}</span> <span className="text-orange-400 font-black">{analysis.vipInsight.detailedStats.shotsOnTarget}</span></div>
+                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.statOffsides}</span> <span className="text-orange-400 font-black">{analysis.vipInsight.detailedStats.offsides}</span></div>
+                  <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.statFouls}</span> <span className="text-orange-400 font-black">{analysis.vipInsight.detailedStats.fouls}</span></div>
+                  {analysis.vipInsight.detailedStats.throwIns && (
+                    <div className="flex justify-between border-b border-white/5 pb-2"><span>{t.statThrowIns}</span> <span className="text-orange-400 font-black">{analysis.vipInsight.detailedStats.throwIns}</span></div>
+                  )}
                 </div>
                 <div>
                   <p className="text-[9px] font-black text-slate-500 uppercase mb-3">{t.probableScorers}</p>

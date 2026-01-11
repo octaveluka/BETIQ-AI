@@ -1,3 +1,4 @@
+
 export enum Confidence {
   LOW = 'LOW',
   MEDIUM = 'MEDIUM',
@@ -43,6 +44,7 @@ export interface DetailedStats {
   fouls: string;
   shots: string;
   shotsOnTarget: string;
+  throwIns?: string;
   scorers: { name: string; probability: number }[];
 }
 
