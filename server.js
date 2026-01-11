@@ -23,12 +23,15 @@ const getDetailedPrompt = (match, language, today) => `
     LANGUE : ${language === 'EN' ? 'English' : 'Français'}.
 
     MISSION : Analyser tactiquement et fournir des prédictions précises.
-    IMPORTANT : Vérifie les entraîneurs actuels et les effectifs réels (blessés, suspendus, CAN).
+    RÈGLES CRITIQUES :
+    1. NE JAMAIS utiliser les termes "Victoire Domicile" ou "Victoire Extérieur". Utilise TOUJOURS le NOM EXACT de l'équipe (ex: "Victoire ${match.homeTeam}").
+    2. NE PAS privilégier l'équipe à domicile par défaut. L'analyse doit être strictement basée sur la forme réelle, les blessures, les suspensions et les statistiques.
+    3. Si le match est équilibré, propose un "Nul" ou une "Double chance" avec le nom des équipes.
 
     TU DOIS RÉPONDRE UNIQUEMENT PAR UN OBJET JSON VALIDE AU FORMAT SUIVANT :
     {
       "predictions": [
-        {"type": "1X2", "recommendation": "Victoire Domicile/Nul", "probability": 75, "confidence": "HIGH", "odds": 1.45},
+        {"type": "1X2", "recommendation": "Ex: Victoire ${match.homeTeam}", "probability": 75, "confidence": "HIGH", "odds": 1.45},
         {"type": "OVER/UNDER 2.5", "recommendation": "+2.5 buts", "probability": 65, "confidence": "MEDIUM", "odds": 1.8},
         {"type": "BTTS", "recommendation": "Oui", "probability": 60, "confidence": "HIGH", "odds": 1.9},
         {"type": "CORNERS", "recommendation": "+8.5 corners", "probability": 70, "confidence": "MEDIUM", "odds": 1.6},
@@ -38,7 +41,7 @@ const getDetailedPrompt = (match, language, today) => `
         {"type": "FAUTES", "recommendation": "+22.5 fautes", "probability": 70, "confidence": "HIGH", "odds": 1.65},
         {"type": "TOUCHES", "recommendation": "+35.5 touches", "probability": 65, "confidence": "MEDIUM", "odds": 1.7}
       ],
-      "analysis": "Analyse de 3-4 lignes.",
+      "analysis": "Analyse tactique neutre et détaillée de 3-4 lignes expliquant le choix des noms d'équipes et les faits du match.",
       "vipInsight": {
         "exactScores": ["1-0", "2-1"],
         "strategy": {"safe": "Libellé", "value": "Libellé", "aggressive": "Libellé"},
