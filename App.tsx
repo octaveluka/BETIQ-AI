@@ -1,15 +1,13 @@
 
 import { auth } from './services/firebase';
 import React, { useState, useMemo, useEffect } from 'react';
-// Fix: Consolidate react-router-dom imports to resolve "no exported member" errors in some TypeScript environments
 import { HashRouter, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { 
   Crown, Lock, LayoutGrid, Settings, ChevronLeft, Search,
-  Loader2, RefreshCw, Zap, BrainCircuit, Trophy, Target, 
+  Loader2, BrainCircuit, Trophy, Target, 
   Globe, LogOut, ShieldCheck, Mail, Languages, ExternalLink,
   Info
 } from 'lucide-react';
-// Fix: Consolidate firebase/auth imports and use 'import type' for User to resolve member errors
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import type { User as FirebaseUser } from "firebase/auth";
 
@@ -44,7 +42,7 @@ const DICTIONARY = {
     loadingAi: "IA en recherche Google (Vérification des effectifs réels)...",
     tacticalAnalysis: "Analyse Tactique (Faits Vérifiés)",
     advancedSignals: "Signaux Avancés",
-    probableScorers: "Buteurs Probables (Forme Actuelle)",
+    probableScorers: "Buteurs Potentiels",
     googleSources: "Preuves de Vérification (Sources Web)",
     iaUnlocked: "ANALYSE IA DÉBLOQUÉE",
     noMatches: "Aucun match trouvé pour ce jour/ligue",
@@ -88,7 +86,7 @@ const DICTIONARY = {
     loadingAi: "AI Google Search (Real Squad Verification)...",
     tacticalAnalysis: "Tactical Analysis (Verified Facts)",
     advancedSignals: "Advanced Signals",
-    probableScorers: "Probable Scorers (Current Form)",
+    probableScorers: "Potential Scorers",
     googleSources: "Verification Proofs (Web Sources)",
     iaUnlocked: "AI ANALYSIS UNLOCKED",
     noMatches: "No matches found for this day/league",
@@ -420,10 +418,16 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
                   <p className="text-[9px] font-black text-slate-500 uppercase mb-3">{t.probableScorers}</p>
                   <div className="grid grid-cols-1 gap-2">
                     {analysis.vipInsight.detailedStats.scorers.map((s, idx) => (
-                      <div key={idx} className="flex justify-between items-center bg-slate-950/40 p-3 rounded-xl border border-white/5">
-                        <span className="text-xs text-white font-bold">{s.name}</span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div key={idx} className="flex flex-col bg-slate-950/40 p-3.5 rounded-xl border border-white/5 gap-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-xs text-white font-bold">{s.name}</span>
+                            <p className="text-[7px] font-black text-slate-500 uppercase tracking-tighter">{s.team}</p>
+                          </div>
+                          <ConfidenceIndicator level={s.confidence as Confidence} lang={language as Language} />
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                             <div className="h-full bg-blue-500" style={{ width: `${s.probability}%` }}></div>
                           </div>
                           <span className="text-[10px] text-blue-400 font-black">{s.probability}%</span>

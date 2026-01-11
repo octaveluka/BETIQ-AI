@@ -45,7 +45,7 @@ export interface DetailedStats {
   shots: string;
   shotsOnTarget: string;
   throwIns?: string;
-  scorers: { name: string; probability: number }[];
+  scorers: { name: string; probability: number; confidence: Confidence; team: string }[];
 }
 
 export interface VipInsight {
