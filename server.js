@@ -14,143 +14,129 @@ app.use(express.json());
 const port = process.env.PORT || 10000;
 const distPath = path.join(__dirname, 'dist');
 const CACHE_FILE = path.join(__dirname, 'predictions_cache.json');
+const VIP_HISTORY_FILE = path.join(__dirname, 'vip_history.json');
 
 let predictionsCache = new Map();
-const CACHE_TTL = 92 * 60 * 60 * 1000; 
+let vipHistory = {}; // Format: { "YYYY-MM-DD": [Match1, Match2, Match3] }
 
-const loadCache = () => {
+const loadData = () => {
   try {
     if (fs.existsSync(CACHE_FILE)) {
-      const data = fs.readFileSync(CACHE_FILE, 'utf8');
-      const json = JSON.parse(data);
-      predictionsCache = new Map(Object.entries(json));
+      predictionsCache = new Map(Object.entries(JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'))));
     }
-  } catch (e) {
-    predictionsCache = new Map();
-  }
+    if (fs.existsSync(VIP_HISTORY_FILE)) {
+      vipHistory = JSON.parse(fs.readFileSync(VIP_HISTORY_FILE, 'utf8'));
+    }
+  } catch (e) { console.error("Load error", e); }
 };
 
-const saveCache = () => {
+const saveData = () => {
   try {
-    const obj = Object.fromEntries(predictionsCache);
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(obj), 'utf8');
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(Object.fromEntries(predictionsCache)), 'utf8');
+    fs.writeFileSync(VIP_HISTORY_FILE, JSON.stringify(vipHistory), 'utf8');
   } catch (e) {}
 };
 
-loadCache();
-
-setInterval(() => {
-  const now = Date.now();
-  let changed = false;
-  for (const [key, value] of predictionsCache.entries()) {
-    if (now - value.timestamp > CACHE_TTL) {
-      predictionsCache.delete(key);
-      changed = true;
-    }
-  }
-  if (changed) saveCache();
-}, 3600000);
+loadData();
 
 /**
- * ENDPOINT : BILAN HEBDOMADAIRE
+ * LOGIQUE DE LA CHAÎNE IA
  */
-app.get('/api/weekly-stats', (req, res) => {
-  const matches = Array.from(predictionsCache.values());
-  const count = matches.length;
-  
-  // Simulation réaliste basée sur l'historique (Taux de succès VIP moyen 78-84%)
-  const successRate = count > 0 ? 82 : 0;
-  const validated = Math.floor(count * (successRate / 100));
-  const failed = count - validated;
+async function callAIChain(prompt) {
+  const urls = [
+    `https://delfaapiai.vercel.app/ai/copilot?message=${encodeURIComponent(prompt)}&model=default`,
+    `https://delfaapiai.vercel.app/ai/webcopilot?question=${encodeURIComponent(prompt)}`,
+    `https://delfaapiai.vercel.app/ai/chatgptfree?prompt=${encodeURIComponent(prompt)}&model=chatgpt4`
+  ];
 
-  res.json({
-    analyzed: count + 42, // +42 pour simuler le cumul de la semaine glissante
-    validated: validated + 35,
-    failed: failed + 7,
-    rate: successRate,
-    topMarkets: [
-      { name: "Plus/Moins 2.5", rate: 88 },
-      { name: "Victoire/Nul", rate: 82 },
-      { name: "Corners & Cartons", rate: 75 },
-      { name: "Buteurs & Fautes", rate: 71 }
-    ]
-  });
-});
-
-const getDetailedPrompt = (match, language, today) => `
-    TU ES UN EXPERT EN PRONOSTICS FOOTBALL DE HAUT NIVEAU.
-    ANALYSE CE MATCH : ${match.homeTeam} VS ${match.awayTeam} (${match.league}).
-    DATE DU MATCH : ${match.time} (Aujourd'hui : ${today}).
-    LANGUE : ${language === 'EN' ? 'English' : 'Français'}.
-
-    TU DOIS RÉPONDRE UNIQUEMENT PAR UN OBJET JSON VALIDE :
-    {
-      "predictions": [
-        {"type": "1X2", "recommendation": "Victoire ${match.homeTeam}", "probability": 75, "confidence": "HIGH", "odds": 1.45},
-        {"type": "OVER/UNDER 2.5", "recommendation": "+2.5 buts", "probability": 65, "confidence": "MEDIUM", "odds": 1.8},
-        {"type": "BTTS", "recommendation": "Oui", "probability": 60, "confidence": "HIGH", "odds": 1.9}
-      ],
-      "analysis": "Analyse tactique neutre.",
-      "vipInsight": {
-        "exactScores": ["2-1", "1-0"],
-        "strategy": {"safe": "Safe", "value": "Value", "aggressive": "Aggro"},
-        "keyFact": "Fact",
-        "detailedStats": {
-          "corners": "8-10", "yellowCards": "3-5", "offsides": "2-4", "fouls": "20-25", "shots": "12-15", "shotsOnTarget": "4-6", "throwIns": "38-42",
-          "scorers": [
-            {"name": "Buteur 1", "probability": 45, "confidence": "HIGH", "team": "${match.homeTeam}"},
-            {"name": "Buteur 2", "probability": 30, "confidence": "MEDIUM", "team": "${match.awayTeam}"}
-          ]
-        }
+  for (const url of urls) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const text = await response.text();
+        const json = extractJson(text);
+        if (json && json.predictions) return json;
       }
-    }
-`;
+    } catch (e) { console.error(`API Chain Error for ${url}:`, e); }
+  }
+
+  // Fallback Gemini
+  if (!process.env.API_KEY) throw new Error("Missing Gemini Key");
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const result = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: { parts: [{ text: prompt }] },
+    config: { responseMimeType: "application/json" }
+  });
+  return JSON.parse(result.text || '{}');
+}
 
 function extractJson(text) {
   try {
-    const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
     return JSON.parse(jsonMatch[0]);
   } catch (e) { return null; }
 }
 
+const getAnalysisPrompt = (match) => `
+    ANALYSE EXPERTE FOOTBALL : ${match.homeTeam} VS ${match.awayTeam} (${match.league}).
+    FORMAT JSON UNIQUEMENT:
+    {
+      "predictions": [
+        {"type": "1X2", "recommendation": "Victoire...", "probability": 85, "confidence": "HIGH", "odds": 1.5},
+        {"type": "O/U 2.5", "recommendation": "+2.5 buts", "probability": 70, "confidence": "MEDIUM", "odds": 1.8},
+        {"type": "BTTS", "recommendation": "Oui", "probability": 65, "confidence": "HIGH", "odds": 1.9}
+      ],
+      "analysis": "Explication tactique courte.",
+      "vipInsight": { "exactScores": ["2-1", "1-0"], "strategy": {"safe": "...", "value": "...", "aggressive": "..."}, "keyFact": "..." }
+    }
+`;
+
 app.post('/api/analyze', async (req, res) => {
   const { match, language } = req.body;
-  const today = new Date().toISOString().split('T')[0];
-  const prompt = getDetailedPrompt(match, language, today);
   const cacheKey = `${match.id}_${language}`;
 
   if (predictionsCache.has(cacheKey)) {
-    const cachedEntry = predictionsCache.get(cacheKey);
-    if (Date.now() - cachedEntry.timestamp < CACHE_TTL) {
-      return res.json(cachedEntry.data);
-    }
+    return res.json(predictionsCache.get(cacheKey).data);
   }
 
-  let resultData = null;
   try {
-    if (!process.env.API_KEY) throw new Error("Missing Gemini Key");
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const result = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: { parts: [{ text: prompt }] },
-      config: { responseMimeType: "application/json", tools: [{ googleSearch: {} }] }
-    });
-    const data = JSON.parse(result.text || '{}');
-    const sources = (result.candidates?.[0]?.groundingMetadata?.groundingChunks || []).filter(c => c.web).map(c => ({ title: c.web.title, uri: c.web.uri }));
-    resultData = { ...data, sources };
+    const data = await callAIChain(getAnalysisPrompt(match));
+    predictionsCache.set(cacheKey, { data, timestamp: Date.now() });
+    saveData();
+    res.json(data);
   } catch (e) {
-    return res.status(500).json({ error: "Fail" });
+    res.status(500).json({ error: "Analysis failed" });
   }
+});
 
-  if (resultData) {
-    predictionsCache.set(cacheKey, { data: resultData, timestamp: Date.now() });
-    saveCache();
-    return res.json(resultData);
+/**
+ * ENDPOINT : VIP DAILY & HISTORY
+ */
+app.post('/api/vip-sync', (req, res) => {
+  const { date, matches } = req.body; // matches sont les matchs du jour envoyés par le client
+  
+  if (!vipHistory[date] && matches && matches.length >= 3) {
+    // On sélectionne 3 matchs au hasard mais on les fixe pour la date
+    const selected = matches.sort(() => 0.5 - Math.random()).slice(0, 3);
+    vipHistory[date] = selected;
+    saveData();
   }
+  
+  res.json({ today: vipHistory[date] || [] });
+});
+
+app.get('/api/history', (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  const history = Object.entries(vipHistory)
+    .filter(([date]) => date < today)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, 7);
+  
+  res.json(Object.fromEntries(history));
 });
 
 app.use(express.static(distPath));
 app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
-app.listen(port, '0.0.0.0', () => console.log(`✅ Server running on ${port}`));
+app.listen(port, '0.0.0.0', () => console.log(`✅ BETIQ Server running on ${port}`));
