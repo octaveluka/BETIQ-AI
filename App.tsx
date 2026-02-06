@@ -1,6 +1,6 @@
 
 import { auth } from './services/firebase';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { 
   Crown, Lock, LayoutGrid, Settings, ChevronLeft, Search,
@@ -8,7 +8,7 @@ import {
   Globe, LogOut, ShieldCheck, Mail, Languages, ExternalLink,
   Info, BarChart3, CheckCircle2, XCircle, TrendingUp, Star,
   Menu, MessageSquare, Gift, Gamepad2, Banknote, ChevronRight,
-  HelpCircle
+  HelpCircle, RefreshCw
 } from 'lucide-react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import type { User as FirebaseUser } from "firebase/auth";
@@ -25,17 +25,19 @@ const PAYMENT_LINK = "https://bsbxsvng.mychariow.shop/prd_g3zdgh/checkout";
 const VALID_CODES_ARRAY = ["BETIQ-2032924", "BETIQ-5", "BETIQ-24"];
 const VALID_USER_CODES = new Set(VALID_CODES_ARRAY);
 
+const SLIDER_IMAGES = [
+  "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80"
+];
+
 const DICTIONARY = {
   FR: {
     home: "Home",
-    promo: "Code Promo",
     premium: "Premium",
-    invest: "Invest",
     services: "Nos Services",
     freeCoupons: "Coupons Gratuits",
     vipCoupons: "Coupons VIP",
-    fifaEport: "Fifa & E-sport",
-    bigGains: "Les Gros Gains",
     freeAccount: "Compte gratuit",
     upgradeDesc: "Passez en Premium pour tout débloquer",
     profit: "Profiter",
@@ -43,7 +45,6 @@ const DICTIONARY = {
     params: "Paramètres",
     accueil: "Accueil",
     guide: "Guide d'Utilisation",
-    contactUs: "Nous contacter",
     changeLang: "Changer la Langue",
     statusFree: "Utilisateur Gratuit",
     statusVip: "Membre ELITE VIP",
@@ -51,14 +52,10 @@ const DICTIONARY = {
   },
   EN: {
     home: "Home",
-    promo: "Promo Code",
     premium: "Premium",
-    invest: "Invest",
     services: "Our Services",
     freeCoupons: "Free Coupons",
     vipCoupons: "VIP Coupons",
-    fifaEport: "Fifa & E-sport",
-    bigGains: "Big Gains",
     freeAccount: "Free Account",
     upgradeDesc: "Upgrade to Premium to unlock all",
     profit: "Enjoy",
@@ -66,7 +63,6 @@ const DICTIONARY = {
     params: "Settings",
     accueil: "Home",
     guide: "User Guide",
-    contactUs: "Contact us",
     changeLang: "Change Language",
     statusFree: "Free User",
     statusVip: "ELITE VIP Member",
@@ -87,7 +83,7 @@ const Sidebar: React.FC<{ isOpen: boolean; onClose: () => void; user: FirebaseUs
           <div className="w-24 h-24 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center border-[6px] border-[#0d0118] shadow-2xl mb-4">
             <span className="text-4xl font-black text-white italic">Q</span>
           </div>
-          <h2 className="text-2xl font-black text-white italic tracking-tighter">BETI<span className="text-orange-500">Q</span></h2>
+          <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">BETI<span className="text-orange-500">Q</span></h2>
           <div className="mt-4 px-6 py-2 bg-[#251b3a] rounded-full border border-white/5">
              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{isVip ? t.statusVip : t.statusFree}</span>
           </div>
@@ -131,19 +127,36 @@ const SidebarItem = ({ icon, title, desc, onClick }: any) => (
 const HomeDashboard: React.FC<{ lang: Language; isVip: boolean }> = ({ lang, isVip }) => {
   const t = DICTIONARY[lang];
   const navigate = useNavigate();
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % SLIDER_IMAGES.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <div className="pb-32 px-5 max-w-2xl mx-auto pt-6">
       {/* Banner Slider */}
-      <div className="relative h-64 w-full rounded-[2.5rem] overflow-hidden mb-8 shadow-2xl group">
-        <img src="https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80" className="absolute inset-0 w-full h-full object-cover brightness-50 group-hover:scale-105 transition-transform duration-700" alt="Soccer Analysis" />
+      <div className="relative h-64 w-full rounded-[2.5rem] overflow-hidden mb-8 shadow-2xl group border border-white/5">
+        {SLIDER_IMAGES.map((img, idx) => (
+          <img 
+            key={idx}
+            src={img} 
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${idx === currentSlide ? 'opacity-50' : 'opacity-0'}`} 
+            alt="Soccer Analysis" 
+          />
+        ))}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-        <div className="absolute bottom-10 left-8 right-8">
+        <div className="absolute bottom-10 left-8 right-8 z-10">
           <h3 className="text-2xl font-black text-white italic mb-2">Analyse Approfondie</h3>
           <p className="text-[11px] font-medium text-slate-200 leading-relaxed uppercase opacity-80">Bénéficiez d'une analyse détaillée par une équipe de parieurs professionnels</p>
         </div>
-        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
-          {[0,1,2,3,4].map(i => <div key={i} className={`h-1.5 w-1.5 rounded-full ${i === 0 ? 'bg-orange-500 w-3' : 'bg-white/30'}`} />)}
+        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-10">
+          {SLIDER_IMAGES.map((_, i) => (
+            <div key={i} className={`h-1.5 transition-all duration-300 rounded-full ${i === currentSlide ? 'bg-orange-500 w-6' : 'bg-white/30 w-1.5'}`} />
+          ))}
         </div>
       </div>
 
@@ -159,13 +172,11 @@ const HomeDashboard: React.FC<{ lang: Language; isVip: boolean }> = ({ lang, isV
         <Link to="/premium" className="bg-orange-500 text-white font-black text-[11px] px-6 py-2.5 rounded-full uppercase tracking-tighter active:scale-95 transition-all shadow-lg shadow-orange-500/20">{t.profit}</Link>
       </div>
 
-      {/* Services Grid (White Cards Style) */}
-      <h2 className="text-2xl font-black text-white italic mb-8 tracking-tighter">{t.services}</h2>
+      {/* Services Grid (White Cards Style) - ONLY 2 SERVICES */}
+      <h2 className="text-2xl font-black text-white italic mb-8 tracking-tighter uppercase">Nos Services</h2>
       <div className="grid grid-cols-2 gap-6">
         <ServiceCard emoji="🎁" title={t.freeCoupons} color="blue" onClick={() => navigate('/coupons-free')} />
         <ServiceCard emoji="🏆" title={t.vipCoupons} color="gold" isLocked={!isVip} onClick={() => navigate('/vip')} />
-        <ServiceCard emoji="🎮" title={t.fifaEport} color="green" isLocked={true} />
-        <ServiceCard emoji="💰" title={t.bigGains} color="purple" isLocked={true} />
       </div>
     </div>
   );
@@ -174,7 +185,7 @@ const HomeDashboard: React.FC<{ lang: Language; isVip: boolean }> = ({ lang, isV
 const ServiceCard = ({ emoji, title, color, isLocked, onClick }: any) => (
   <div onClick={onClick} className="bg-white rounded-[2.5rem] p-8 flex flex-col items-center justify-center text-center gap-4 shadow-xl active:scale-95 transition-all cursor-pointer relative group text-[#0d0118]">
     <div className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl shadow-inner ${
-      color === 'blue' ? 'bg-blue-50' : color === 'gold' ? 'bg-orange-50' : color === 'green' ? 'bg-emerald-50' : 'bg-purple-50'
+      color === 'blue' ? 'bg-blue-50' : color === 'gold' ? 'bg-orange-50' : 'bg-purple-50'
     }`}>
       {emoji}
     </div>
@@ -182,6 +193,52 @@ const ServiceCard = ({ emoji, title, color, isLocked, onClick }: any) => (
     {isLocked && <div className="absolute top-4 right-4 bg-orange-500 p-1.5 rounded-full shadow-lg border-2 border-white"><Star size={10} className="text-white" fill="white" /></div>}
   </div>
 );
+
+const PullToRefresh: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => {
+  const [startY, setStartY] = useState(0);
+  const [pulling, setPulling] = useState(false);
+  const [pullDist, setPullDist] = useState(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      setStartY(e.touches[0].pageY);
+      setPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!pulling) return;
+    const dist = e.touches[0].pageY - startY;
+    if (dist > 0) {
+      setPullDist(Math.min(dist * 0.4, 80));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (pullDist > 60) {
+      onRefresh();
+    }
+    setPulling(false);
+    setPullDist(0);
+  };
+
+  return (
+    <div 
+      className="relative w-full transition-transform duration-200" 
+      style={{ transform: `translateY(${pullDist}px)` }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div 
+        className="absolute left-0 right-0 flex justify-center items-center overflow-hidden transition-all duration-300" 
+        style={{ top: `-${pullDist}px`, height: `${pullDist}px`, opacity: pullDist / 60 }}
+      >
+        <RefreshCw size={24} className={`text-orange-500 ${pullDist > 60 ? 'animate-spin' : ''}`} />
+      </div>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -194,6 +251,18 @@ const App: React.FC = () => {
   const location = useLocation();
   const t = DICTIONARY[language];
 
+  const refreshData = () => {
+    setLoading(true);
+    fetchMatchesByDate(selectedDate).then(data => {
+      setMatches(data.map(m => ({
+        id: m.match_id, league: m.league_name, homeTeam: m.match_hometeam_name, awayTeam: m.match_awayteam_name,
+        homeLogo: m.team_home_badge, awayLogo: m.team_away_badge, time: m.match_time, status: m.match_status,
+        predictions: [], stats: { homeForm: [], awayForm: [], homeRank: 0, awayRank: 0, h2h: '' }
+      })));
+      setLoading(false);
+    });
+  };
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -205,47 +274,38 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      setLoading(true);
-      fetchMatchesByDate(selectedDate).then(data => {
-        setMatches(data.map(m => ({
-          id: m.match_id, league: m.league_name, homeTeam: m.match_hometeam_name, awayTeam: m.match_awayteam_name,
-          homeLogo: m.team_home_badge, awayLogo: m.team_away_badge, time: m.match_time, status: m.match_status,
-          predictions: [], stats: { homeForm: [], awayForm: [], homeRank: 0, awayRank: 0, h2h: '' }
-        })));
-        setLoading(false);
-      });
-    }
+    if (user) refreshData();
   }, [selectedDate, user]);
 
   if (!user) return <AuthView lang={language} />;
 
   return (
     <div className="min-h-screen bg-[#0d0118] text-slate-100 font-sans selection:bg-orange-500 selection:text-white">
-      {/* Header */}
+      <PullToRefresh onRefresh={refreshData} />
+      
       <header className="px-6 py-6 flex items-center justify-between border-b border-white/5 bg-[#0d0118]/80 backdrop-blur-xl sticky top-0 z-[60]">
         <button onClick={() => setSidebarOpen(true)} className="p-2 text-white active:scale-90 transition-transform"><Menu size={28}/></button>
-        <h1 className="text-2xl font-black italic text-white tracking-tighter">BETI<span className="text-orange-500">Q</span></h1>
+        <h1 className="text-2xl font-black italic text-white tracking-tighter uppercase">BETI<span className="text-orange-500">Q</span></h1>
         <button className="p-2 text-orange-500 active:scale-90 transition-transform"><MessageSquare size={24} fill="currentColor" className="opacity-80"/></button>
       </header>
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user} isVip={isVip} lang={language} setLanguage={setLanguage} />
 
-      <Routes>
-        <Route path="/" element={<HomeDashboard lang={language} isVip={isVip} />} />
-        <Route path="/coupons-free" element={<FreePredictionsView matches={matches} loading={loading} lang={language} />} />
-        <Route path="/vip" element={<VipZoneView matches={matches} loading={loading} isVip={isVip} selectedDate={selectedDate} onDateChange={setSelectedDate} lang={language} />} />
-        <Route path="/premium" element={<SettingsView isVip={isVip} setIsVip={setIsVip} userEmail={user.email} language={language} />} />
-        <Route path="/match/:id" element={<MatchDetailView language={language} />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+      <div className="animate-fade-in">
+        <Routes>
+          <Route path="/" element={<HomeDashboard lang={language} isVip={isVip} />} />
+          <Route path="/coupons-free" element={<FreePredictionsView matches={matches} loading={loading} lang={language} />} />
+          <Route path="/vip" element={<VipZoneView matches={matches} loading={loading} isVip={isVip} selectedDate={selectedDate} onDateChange={setSelectedDate} lang={language} />} />
+          <Route path="/premium" element={<SettingsView isVip={isVip} setIsVip={setIsVip} userEmail={user.email} language={language} />} />
+          <Route path="/match/:id" element={<MatchDetailView language={language} />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </div>
       
-      {/* Footer Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#110524]/95 backdrop-blur-2xl border-t border-white/10 py-4 px-8 flex items-center justify-between z-[70] shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+      {/* Updated Footer Nav: Only Home and Premium */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#110524]/95 backdrop-blur-2xl border-t border-white/10 py-4 px-8 flex items-center justify-around z-[70] shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
         <NavLink to="/" icon={<LayoutGrid size={22}/>} label={t.home} active={location.pathname === '/' || location.pathname === '/coupons-free'} />
-        <NavLink to="/code-promo" icon={<Gift size={22}/>} label={t.promo} active={location.pathname === '/code-promo'} />
         <NavLink to="/premium" icon={<Star size={22}/>} label={t.premium} active={location.pathname === '/premium' || location.pathname === '/vip'} />
-        <NavLink to="/invest" icon={<Banknote size={22}/>} label={t.invest} active={location.pathname === '/invest'} />
       </nav>
     </div>
   );
@@ -258,12 +318,10 @@ const NavLink = ({ to, icon, label, active }: any) => (
   </Link>
 );
 
-// --- VIEW COMPONENTS ---
-
 const FreePredictionsView: React.FC<any> = ({ matches, loading, lang }) => {
   const navigate = useNavigate();
   return (
-    <div className="pb-32 px-5 max-w-2xl mx-auto pt-6 animate-fade-in">
+    <div className="pb-32 px-5 max-w-2xl mx-auto pt-6">
        <button onClick={() => navigate(-1)} className="mb-6 p-2 bg-[#1c122e] rounded-xl text-white"><ChevronLeft size={20}/></button>
        <h2 className="text-2xl font-black italic text-white mb-8">Coupons Gratuits</h2>
        {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-orange-500"/></div> : (
@@ -278,7 +336,7 @@ const FreePredictionsView: React.FC<any> = ({ matches, loading, lang }) => {
 const VipZoneView: React.FC<any> = ({ matches, loading, isVip, selectedDate, onDateChange, lang }) => {
   const navigate = useNavigate();
   return (
-    <div className="pb-32 px-5 max-w-2xl mx-auto pt-6 animate-fade-in">
+    <div className="pb-32 px-5 max-w-2xl mx-auto pt-6">
        <button onClick={() => navigate(-1)} className="mb-6 p-2 bg-[#1c122e] rounded-xl text-white"><ChevronLeft size={20}/></button>
        <h2 className="text-2xl font-black italic text-orange-500 mb-8">Zone Elite VIP</h2>
        <div className="space-y-6">
@@ -310,7 +368,7 @@ const SettingsView: React.FC<any> = ({ isVip, setIsVip, userEmail, language }) =
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState('');
   return (
-    <div className="pb-32 px-5 max-w-2xl mx-auto pt-10 animate-fade-in">
+    <div className="pb-32 px-5 max-w-2xl mx-auto pt-10">
       <h2 className="text-3xl font-black italic mb-10 text-white">Premium</h2>
       <div className="bg-[#1c122e] p-8 rounded-[3rem] border border-orange-500/20 shadow-2xl space-y-8">
         <div className="flex items-center gap-5">
@@ -323,9 +381,21 @@ const SettingsView: React.FC<any> = ({ isVip, setIsVip, userEmail, language }) =
         {!isVip ? (
           <div className="space-y-4">
             <a href={PAYMENT_LINK} target="_blank" rel="noreferrer" className="block text-center w-full bg-orange-500 text-white font-black py-5 rounded-[1.5rem] text-xs uppercase shadow-xl shadow-orange-500/10 active:scale-95 transition-all">Acheter un code d'accès</a>
-            <div className="flex gap-2">
-              <input type="text" placeholder="Entrez votre code" value={code} onChange={e => setCode(e.target.value)} className="flex-1 bg-black/40 border border-white/5 rounded-2xl px-6 text-sm text-white font-bold outline-none focus:border-orange-500/50 transition-colors" />
-              <button onClick={() => { if(VALID_USER_CODES.has(code) || code === ADMIN_CODE) { setIsVip(true); localStorage.setItem(`btq_vip_status_${userEmail}`, 'true'); } else setMsg('Invalide'); }} className="bg-white text-black px-6 py-4 rounded-2xl font-black text-xs uppercase">Vérifier</button>
+            {/* Fixed Layout to prevent "Vérifier" button overflow */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input 
+                type="text" 
+                placeholder="Entrez votre code" 
+                value={code} 
+                onChange={e => setCode(e.target.value)} 
+                className="flex-1 min-w-0 bg-black/40 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white font-bold outline-none focus:border-orange-500/50 transition-colors" 
+              />
+              <button 
+                onClick={() => { if(VALID_USER_CODES.has(code) || code === ADMIN_CODE) { setIsVip(true); localStorage.setItem(`btq_vip_status_${userEmail}`, 'true'); } else setMsg('Invalide'); }} 
+                className="whitespace-nowrap bg-white text-black px-8 py-4 rounded-2xl font-black text-xs uppercase active:scale-95 transition-transform"
+              >
+                Vérifier
+              </button>
             </div>
             {msg && <p className="text-rose-500 text-center font-black text-[10px] uppercase animate-pulse">{msg}</p>}
           </div>
@@ -350,7 +420,7 @@ const MatchDetailView: React.FC<any> = ({ language }) => {
   if (!match) return null;
 
   return (
-    <div className="pb-32 px-5 max-w-2xl mx-auto pt-6 animate-fade-in">
+    <div className="pb-32 px-5 max-w-2xl mx-auto pt-6">
       <button onClick={() => navigate(-1)} className="p-3 bg-[#110524] rounded-2xl mb-6 border border-white/5 text-white active:scale-90 transition-transform"><ChevronLeft size={20}/></button>
       <div className="bg-[#110524] rounded-[3rem] p-10 border border-white/5 shadow-2xl mb-8">
         <div className="flex justify-between items-center mb-12">
