@@ -1,12 +1,12 @@
 
 import { auth } from './services/firebase';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { 
   Crown, Lock, LayoutGrid, ChevronLeft, 
   Loader2, BrainCircuit, Star,
   LogOut, ShieldCheck, Languages, ChevronRight,
-  Menu, History, Calendar, RefreshCw, Zap, Search, Filter
+  Menu, History, Calendar, RefreshCw, Zap, Search, Filter, Trophy
 } from 'lucide-react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import type { User as FirebaseUser } from "firebase/auth";
@@ -41,7 +41,8 @@ const DICTIONARY = {
     allMatches: "Tous les Matchs",
     win: "SUCCÈS",
     loss: "ÉCHEC",
-    pending: "EN COURS"
+    pending: "EN COURS",
+    filterLeagues: "Toutes les ligues"
   },
   EN: {
     home: "Home",
@@ -60,7 +61,8 @@ const DICTIONARY = {
     allMatches: "All Matches",
     win: "WIN",
     loss: "LOSS",
-    pending: "PENDING"
+    pending: "PENDING",
+    filterLeagues: "All Leagues"
   }
 };
 
@@ -124,7 +126,7 @@ const App: React.FC = () => {
     }));
     setMatches(mapped);
     
-    // Only sync VIP on 'today'
+    // Sync VIP only if viewing today's matches
     const today = new Date().toISOString().split('T')[0];
     if (dateToUse === today) {
         try {
@@ -168,9 +170,15 @@ const App: React.FC = () => {
       <main className="animate-fade-in">
         <Routes>
           <Route path="/" element={
-            isVip 
-            ? <VipDashboard lang={language} matches={matches} dailyVip={dailyVip} loading={loading} date={selectedDate} setDate={setSelectedDate} /> 
-            : <StandardDashboard lang={language} matches={matches} dailyVip={dailyVip} loading={loading} />
+            <UnifiedDashboard 
+              lang={language} 
+              matches={matches} 
+              dailyVip={dailyVip} 
+              loading={loading} 
+              isVip={isVip} 
+              date={selectedDate} 
+              setDate={setSelectedDate} 
+            />
           } />
           <Route path="/history" element={<HistoryView lang={language} />} />
           <Route path="/premium" element={<SettingsView isVip={isVip} setIsVip={setIsVip} userEmail={user.email} language={language} />} />
@@ -194,112 +202,129 @@ const NavLink = ({ to, icon, label, active }: any) => (
   </Link>
 );
 
-// --- DASHBOARD STANDARD (Non-VIP) ---
-const StandardDashboard: React.FC<any> = ({ lang, matches, dailyVip, loading }) => {
-  const t = DICTIONARY[lang as Language];
-  const navigate = useNavigate();
-  
-  const freeCoupons = matches.slice(0, 2); // 2 random matches as free sample
-  const otherMatches = matches.slice(2);
-
+/**
+ * Filter Bar Component
+ */
+const FilterBar = ({ date, setDate, selectedLeague, setSelectedLeague, leagues, t }: any) => {
   return (
-    <div className="pb-32 px-5 max-w-2xl mx-auto pt-6">
-       <Banner lang={lang} isVip={false} />
-       
-       {/* Free Coupons Section */}
-       <section className="mb-10">
-         <h2 className="text-[11px] font-black text-slate-400 uppercase mb-4 tracking-widest flex items-center gap-2 border-b border-white/5 pb-2">
-           <Zap size={14} className="text-blue-400" /> {t.freeCoupons}
-         </h2>
-         <div className="space-y-4">
-           {loading ? <Loader2 className="animate-spin text-orange-500 mx-auto"/> : freeCoupons.map((m: any) => (
-             <MatchCard key={m.id} match={m} isVipUser={false} forceLock={false} lang={lang} onClick={() => navigate(`/match/${m.id}`, { state: { match: m } })} />
-           ))}
-         </div>
-       </section>
+    <div className="flex flex-col gap-4 mb-6">
+      {/* Date Picker Row */}
+      <div className="flex items-center gap-2 bg-white/5 px-4 py-3 rounded-2xl border border-white/5 w-fit">
+        <Calendar size={16} className="text-orange-500"/>
+        <input 
+          type="date" 
+          value={date} 
+          onChange={(e) => setDate(e.target.value)} 
+          className="bg-transparent text-white text-xs font-black uppercase outline-none" 
+        />
+      </div>
 
-       {/* VIP Selection (Locked) */}
-       <section className="mb-10">
-         <h2 className="text-[11px] font-black text-orange-500 uppercase mb-4 tracking-widest flex items-center gap-2 border-b border-white/5 pb-2">
-           <Star size={14} fill="currentColor" /> {t.vipCoupons}
-         </h2>
-         <div className="space-y-4">
-           {dailyVip.length > 0 ? dailyVip.map((m: any) => (
-             <VipSafeCard key={m.id} match={m} isLocked={true} lang={lang} onClick={() => navigate('/premium')} />
-           )) : <div className="text-center text-slate-600 text-xs font-black">Chargement VIP...</div>}
-         </div>
-       </section>
-
-       {/* Other Matches (Locked) */}
-       <section>
-          <h2 className="text-[11px] font-black text-slate-500 uppercase mb-4 tracking-widest flex items-center gap-2">
-            <Lock size={14} /> {t.allMatches}
-          </h2>
-          <div className="space-y-4 opacity-75">
-            {otherMatches.slice(0, 5).map((m: any) => (
-              <MatchCard key={m.id} match={m} isVipUser={false} forceLock={true} lang={lang} onClick={() => navigate('/premium')} />
-            ))}
-            <button onClick={() => navigate('/premium')} className="w-full py-4 text-xs font-black text-orange-500 uppercase tracking-widest bg-orange-500/10 rounded-2xl">
-              Voir +20 Matchs
-            </button>
-          </div>
-       </section>
+      {/* League Scroller */}
+      <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+        <button 
+          onClick={() => setSelectedLeague('ALL')}
+          className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
+            selectedLeague === 'ALL' 
+            ? 'bg-orange-500 text-white border-orange-500' 
+            : 'bg-white/5 text-slate-400 border-white/5'
+          }`}
+        >
+          {t.filterLeagues}
+        </button>
+        {leagues.map((l: string) => (
+           <button 
+             key={l} 
+             onClick={() => setSelectedLeague(l)}
+             className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
+               selectedLeague === l 
+               ? 'bg-white text-black border-white' 
+               : 'bg-white/5 text-slate-400 border-white/5'
+             }`}
+           >
+             {l}
+           </button>
+        ))}
+      </div>
     </div>
   );
 };
 
-// --- DASHBOARD VIP (Unified Interface) ---
-const VipDashboard: React.FC<any> = ({ lang, matches, dailyVip, loading, date, setDate }) => {
+/**
+ * Unified Dashboard: Handles both Free and VIP logic with visual distinctions.
+ */
+const UnifiedDashboard: React.FC<any> = ({ lang, matches, dailyVip, loading, isVip, date, setDate }) => {
   const t = DICTIONARY[lang as Language];
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
-  
-  const filteredMatches = matches.filter((m: any) => 
-    m.homeTeam.toLowerCase().includes(search.toLowerCase()) || 
-    m.awayTeam.toLowerCase().includes(search.toLowerCase()) ||
-    m.league.toLowerCase().includes(search.toLowerCase())
-  );
+  const [selectedLeague, setSelectedLeague] = useState('ALL');
+
+  // Extract unique leagues for filter
+  const leagues = useMemo(() => Array.from(new Set(matches.map((m: any) => m.league))), [matches]);
+
+  // Filter matches
+  const filteredMatches = matches.filter((m: any) => selectedLeague === 'ALL' || m.league === selectedLeague);
+
+  // Free user logic: specific "Free Coupons"
+  const freeCoupons = !isVip ? filteredMatches.slice(0, 2) : [];
+  const restOfMatches = !isVip ? filteredMatches.slice(2) : filteredMatches;
 
   return (
     <div className="pb-32 px-5 max-w-2xl mx-auto pt-6">
-       {/* Filters Row */}
-       <div className="flex items-center gap-3 mb-6 overflow-x-auto no-scrollbar">
-         <div className="flex items-center gap-2 bg-white/5 px-4 py-3 rounded-2xl border border-white/5 min-w-fit">
-            <Calendar size={16} className="text-orange-500"/>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-transparent text-white text-xs font-black uppercase outline-none" />
-         </div>
-         <div className="flex-1 bg-white/5 px-4 py-3 rounded-2xl border border-white/5 flex items-center gap-2">
-            <Search size={16} className="text-slate-500"/>
-            <input type="text" placeholder={t.search} value={search} onChange={(e) => setSearch(e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none w-full placeholder:text-slate-600" />
-         </div>
-       </div>
+       {!isVip && <Banner lang={lang} isVip={isVip} />}
 
-       {/* VIP Selection (Top) */}
-       {dailyVip.length > 0 && !search && (
-        <section className="mb-8">
-           <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
-             <h2 className="text-[11px] font-black text-orange-500 uppercase tracking-widest flex items-center gap-2">
-               <Crown size={14} fill="currentColor" /> {t.vipCoupons}
-             </h2>
-           </div>
+       <FilterBar 
+         date={date} 
+         setDate={setDate} 
+         selectedLeague={selectedLeague} 
+         setSelectedLeague={setSelectedLeague} 
+         leagues={leagues} 
+         t={t} 
+       />
+
+       {/* SECTION 1: FREE COUPONS (Only for Standard) */}
+       {!isVip && freeCoupons.length > 0 && (
+         <section className="mb-8">
+           <h2 className="text-[11px] font-black text-slate-400 uppercase mb-4 tracking-widest flex items-center gap-2 border-b border-white/5 pb-2">
+             <Zap size={14} className="text-blue-400" /> {t.freeCoupons}
+           </h2>
            <div className="space-y-4">
-             {dailyVip.map((m: any) => (
-               <VipSafeCard key={m.id} match={m} isLocked={false} lang={lang} onClick={() => navigate(`/match/${m.id}`, { state: { match: m } })} />
+             {loading ? <Loader2 className="animate-spin text-orange-500 mx-auto"/> : freeCoupons.map((m: any) => (
+               <MatchCard key={m.id} match={m} isVipUser={true} forceLock={false} lang={lang} onClick={() => navigate(`/match/${m.id}`, { state: { match: m } })} />
              ))}
            </div>
-        </section>
+         </section>
        )}
 
-       {/* All Matches List */}
+       {/* SECTION 2: VIP SELECTION (Displayed for everyone, Locked for Standard) */}
+       {dailyVip.length > 0 && (
+         <section className="mb-8">
+           <h2 className="text-[11px] font-black text-orange-500 uppercase mb-4 tracking-widest flex items-center gap-2 border-b border-white/5 pb-2">
+             <Crown size={14} fill="currentColor" /> {t.vipCoupons}
+           </h2>
+           <div className="space-y-4">
+             {dailyVip.map((m: any) => (
+               <VipSafeCard key={m.id} match={m} isLocked={!isVip} lang={lang} onClick={() => isVip ? navigate(`/match/${m.id}`, { state: { match: m } }) : navigate('/premium')} />
+             ))}
+           </div>
+         </section>
+       )}
+
+       {/* SECTION 3: ALL MATCHES (Displayed for everyone, Locked for Standard) */}
        <section>
-          <h2 className="text-[11px] font-black text-slate-400 uppercase mb-4 tracking-widest flex items-center gap-2">
+          <h2 className="text-[11px] font-black text-slate-500 uppercase mb-4 tracking-widest flex items-center gap-2">
             <LayoutGrid size={14} /> {t.allMatches}
           </h2>
           {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-orange-500"/></div> : (
              <div className="space-y-4">
-               {filteredMatches.length > 0 ? filteredMatches.map((m: any) => (
-                 <MatchCard key={m.id} match={m} isVipUser={true} forceLock={false} lang={lang} onClick={() => navigate(`/match/${m.id}`, { state: { match: m } })} />
-               )) : <p className="text-center text-slate-500 text-xs py-10">Aucun match trouvé.</p>}
+               {restOfMatches.length > 0 ? restOfMatches.map((m: any) => (
+                 <MatchCard 
+                    key={m.id} 
+                    match={m} 
+                    isVipUser={isVip} 
+                    forceLock={!isVip} 
+                    lang={lang} 
+                    onClick={() => isVip ? navigate(`/match/${m.id}`, { state: { match: m } }) : navigate('/premium')} 
+                 />
+               )) : <p className="text-center text-slate-500 text-xs py-10 font-bold uppercase tracking-widest">No matches found for this filter.</p>}
              </div>
           )}
        </section>
@@ -329,19 +354,12 @@ const HistoryView: React.FC<any> = ({ lang }) => {
     fetch('/api/history').then(res => res.json()).then(data => { setHistory(data); setLoading(false); }).catch(() => setLoading(false));
   }, []);
 
-  // Helper to determine Win/Loss based on score and "Implied" prediction (Home Win by default for VIP selection context if generic)
   const getStatus = (m: any) => {
     if (m.match_status !== 'Finished') return { label: t.pending, color: 'text-slate-500 bg-slate-500/10' };
     
-    // Logic: In this simplified model, we assume the VIP prediction was "Home Win" or "Favorite".
-    // Since we don't have a DB of predictions, we look at the score.
-    // Real implementation would compare `m.storedPrediction` with score.
+    // Simplified status logic for demo
     const h = parseInt(m.homeScore);
     const a = parseInt(m.awayScore);
-    
-    // Fallback logic for demo: If home won, it's green (assuming favorites mostly).
-    // Better: Read from m.storedPrediction if server provides it.
-    // For now, let's display the score and a generic 'Finished' if we can't confirm.
     
     if (h > a) return { label: t.win, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' };
     if (h < a) return { label: t.loss, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20' };
@@ -367,7 +385,6 @@ const HistoryView: React.FC<any> = ({ lang }) => {
                   const status = getStatus(m);
                   return (
                     <div key={m.id} className="relative bg-[#0b1121] border border-white/5 rounded-[2rem] p-5">
-                       {/* Score Badge */}
                        <div className="absolute top-4 right-4 flex flex-col items-end">
                           <span className={`px-3 py-1 rounded-lg text-[9px] font-black border ${status.color} uppercase tracking-widest mb-1`}>{status.label}</span>
                           <span className="text-lg font-black text-white tracking-widest">{m.homeScore} - {m.awayScore}</span>
