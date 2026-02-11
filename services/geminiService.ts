@@ -1,3 +1,4 @@
+
 import { FootballMatch, Confidence, Prediction, VipInsight } from "../types";
 
 export interface AnalysisResult {
@@ -25,13 +26,24 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
 
     const data = await response.json();
     
-    // On s'assure que les enums sont bien castés
+    // Sanitisation robuste des données pour éviter les crashes React
+    const safePredictions = Array.isArray(data.predictions) ? data.predictions : [];
+    const safeVipInsight = data.vipInsight || {};
+    const safeDetailedStats = safeVipInsight.detailedStats || {};
+    
     return {
       ...data,
-      predictions: (data.predictions || []).map((p: any) => ({
+      predictions: safePredictions.map((p: any) => ({
         ...p,
         confidence: (p.confidence || 'MEDIUM').toUpperCase() as Confidence,
-      }))
+      })),
+      vipInsight: {
+          ...safeVipInsight,
+          detailedStats: {
+              ...safeDetailedStats,
+              scorers: Array.isArray(safeDetailedStats.scorers) ? safeDetailedStats.scorers : []
+          }
+      }
     };
   } catch (error) {
     console.error("Analysis Request Failed:", error);
@@ -42,7 +54,15 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
       analysis: "Désolé, nous ne parvenons pas à contacter nos services d'analyse. Vérifiez votre connexion.",
       vipInsight: { 
         keyFact: "Erreur de communication serveur.", 
-        strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" } 
+        strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" },
+        detailedStats: {
+            corners: "N/A",
+            shotsOnTarget: "N/A",
+            yellowCards: "N/A",
+            fouls: "N/A",
+            throwIns: "N/A",
+            scorers: []
+        }
       },
       sources: []
     };
