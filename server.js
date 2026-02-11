@@ -4,8 +4,6 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
-// NOTE: Gemini dependencies removed as requested.
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -43,6 +41,7 @@ loadData();
 function extractJsonFromText(text) {
   if (!text) return null;
   try {
+    // Nettoyage agressif du markdown
     const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     const start = cleanedText.indexOf('{');
     const end = cleanedText.lastIndexOf('}');
@@ -54,106 +53,106 @@ function extractJsonFromText(text) {
   } catch (e) { return null; }
 }
 
-/**
- * AI CHAIN: Only uses Proxy APIs. No Gemini Fallback.
- */
-async function callAIChain(prompt) {
-  const endpoints = [
-    { url: `https://delfaapiai.vercel.app/ai/copilot?message=${encodeURIComponent(prompt)}&model=default`, name: 'Copilot' },
-    { url: `https://delfaapiai.vercel.app/ai/webcopilot?question=${encodeURIComponent(prompt)}`, name: 'WebCopilot' },
-    { url: `https://delfaapiai.vercel.app/ai/chatgptfree?prompt=${encodeURIComponent(prompt)}&model=chatgpt4`, name: 'ChatGPT4' }
-  ];
-
-  for (const api of endpoints) {
-    try {
-      console.log(`[AI Chain] Trying ${api.name}...`);
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const res = await fetch(api.url, { signal: controller.signal });
-      clearTimeout(timeout);
-      
-      if (res.ok) {
-        const text = await res.text();
-        const data = extractJsonFromText(text);
-        if (data && (data.predictions || data.prediction)) {
-          console.log(`[AI Chain] ${api.name} SUCCESS`);
-          return data;
-        }
-      }
-    } catch (e) { console.log(`[AI Chain] ${api.name} FAILED: ${e.message}`); }
-  }
+async function callCopilotAI(prompt) {
+  // API Spécifiée par l'utilisateur
+  const url = `https://delfaapiai.vercel.app/ai/copilot?message=${encodeURIComponent(prompt)}&model=default`;
   
-  // If all fail, return a basic fallback object (Gemini removed)
-  return {
-    predictions: [{ type: "1X2", recommendation: "Analyse Indisponible", probability: 0, confidence: "LOW" }],
-    analysis: "Service IA momentanément indisponible.",
-    vipInsight: { exactScores: [], strategy: { safe: "-", value: "-", aggressive: "-" }, keyFact: "-" }
-  };
+  try {
+    console.log(`[AI] Analyse en cours via Copilot...`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000); // 25s timeout pour analyse approfondie
+    
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    
+    const text = await response.text();
+    const data = extractJsonFromText(text);
+    
+    if (data && (data.predictions || data.prediction)) {
+        return data;
+    }
+    throw new Error("Structure JSON invalide reçue de l'IA");
+    
+  } catch (e) {
+    console.error(`[AI] Erreur: ${e.message}`);
+    // Structure de repli en cas d'erreur API
+    return {
+        predictions: [{ type: "1X2", recommendation: "N/A", probability: 0, confidence: "LOW" }],
+        analysis: "Analyse IA indisponible pour le moment. Veuillez réessayer plus tard.",
+        vipInsight: { exactScores: [], strategy: { safe: "-", value: "-", aggressive: "-" }, keyFact: "-" }
+    };
+  }
 }
 
-const getPrompt = (match) => `Expert Football Analysis. Return ONLY a valid JSON object.
-Structure:
+const getPrompt = (match) => {
+  const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  
+  return `Role: Expert Analyste Football.
+Contexte: Nous sommes le ${today}. Tu dois impérativement prendre en compte la date du jour, les dernières actualités (blessures, transferts, rumeurs) et la forme très récente des équipes.
+Match: ${match.homeTeam} vs ${match.awayTeam} (${match.league}).
+
+Tâche: Analyse ce match et retourne UNIQUEMENT un objet JSON valide.
+Règles:
+1. Pas de markdown (pas de \`\`\`json).
+2. JSON valide uniquement.
+3. Si les données sont incertaines, fais une estimation conservatrice basée sur les stats historiques.
+
+Structure JSON attendue:
 {
   "predictions": [
-    {"type": "1X2", "recommendation": "Victory for...", "probability": 85, "confidence": "HIGH", "odds": 1.6},
-    {"type": "O/U 2.5", "recommendation": "+2.5 Goals", "probability": 75, "confidence": "MEDIUM", "odds": 1.8},
-    {"type": "BTTS", "recommendation": "Yes", "probability": 70, "confidence": "HIGH", "odds": 1.9}
+    {"type": "1X2", "recommendation": "Victoire Domicile / Nul / Victoire Extérieur", "probability": 85, "confidence": "HIGH", "odds": 1.55},
+    {"type": "O/U 2.5", "recommendation": "+2.5 Buts / -2.5 Buts", "probability": 65, "confidence": "MEDIUM", "odds": 1.75},
+    {"type": "BTTS", "recommendation": "Oui / Non", "probability": 60, "confidence": "LOW", "odds": 1.90}
   ],
-  "analysis": "Short tactical analysis (max 2 sentences).",
+  "analysis": "Une analyse tactique professionnelle et concise (max 3 phrases). Mentionne les joueurs clés.",
   "vipInsight": { 
-    "exactScores": ["2-1", "1-0"], 
-    "keyFact": "Major injury in defense", 
-    "strategy": {"safe": "DNB", "value": "Home +1.5", "aggressive": "Exact Score 2-1"} 
+    "exactScores": ["2-1", "3-1"], 
+    "keyFact": "Fait marquant (ex: Joueur clé blessé, Équipe invaincue à domicile)", 
+    "strategy": {"safe": "Double Chance 1X", "value": "Victoire & +1.5 Buts", "aggressive": "Victoire -1 Handicap"} 
   }
-}
-Match: ${match.homeTeam} vs ${match.awayTeam} in ${match.league}.`;
+}`;
+};
 
 app.post('/api/analyze', async (req, res) => {
   const { match } = req.body;
   if (!match) return res.status(400).json({ error: "Match missing" });
   
-  const cacheKey = match.id;
+  // Clé de cache incluant la date pour forcer une nouvelle analyse chaque jour
+  const todayKey = new Date().toISOString().split('T')[0];
+  const cacheKey = `${match.id}_${todayKey}`;
+  
   if (predictionsCache.has(cacheKey)) {
     return res.json(predictionsCache.get(cacheKey));
   }
 
   try {
-    const data = await callAIChain(getPrompt(match));
+    const data = await callCopilotAI(getPrompt(match));
     predictionsCache.set(cacheKey, data);
     saveData();
     res.json(data);
   } catch (e) {
-    res.status(500).json({ error: "Analysis service unavailable" });
+    res.status(500).json({ error: "Service d'analyse indisponible" });
   }
 });
 
-/**
- * VIP SYNC: Fixes 3 matches AND attaches a persistent prediction for History purposes.
- */
 app.post('/api/vip-sync', (req, res) => {
   const { date, matches } = req.body;
   
   if (!vipDailyStorage[date] && matches && matches.length >= 3) {
-    // Select 3 random high-profile matches
     const shuffled = [...matches].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 3);
     
-    // Attach a "stored prediction" so history knows what was predicted.
-    // In a real app, we would call AI here. For speed/robustness in this demo,
-    // we attach a placeholder or check cache.
-    const selectedWithPreds = selected.map(m => {
-       // If we have a cached prediction, use it. Otherwise, assume Home Win for history tracking purposes
-       // or mark as 'pending' to be analyzed on the fly (but history needs fixed data).
-       // To ensure history works, we set a default 'target' prediction.
-       return {
-         ...m,
-         storedPrediction: {
-            type: "1X2",
-            selection: "Home", // Default tracking for history visual if not analyzed
-            label: `Victoire ${m.homeTeam}`
-         }
-       };
-    });
+    // Ajout d'une prédiction par défaut pour l'affichage dans l'historique
+    const selectedWithPreds = selected.map(m => ({
+       ...m,
+       storedPrediction: {
+          type: "1X2",
+          selection: "Home", 
+          label: `Victoire ${m.homeTeam}`
+       }
+    }));
 
     vipDailyStorage[date] = selectedWithPreds;
     saveData();
@@ -165,10 +164,9 @@ app.post('/api/vip-sync', (req, res) => {
 app.get('/api/history', (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const history = Object.entries(vipDailyStorage)
-    .filter(([date]) => date < today) // Only past days
+    .filter(([date]) => date < today)
     .sort(([a], [b]) => b.localeCompare(a))
-    .slice(0, 7); // Last 7 days
-  
+    .slice(0, 7);
   res.json(Object.fromEntries(history));
 });
 
