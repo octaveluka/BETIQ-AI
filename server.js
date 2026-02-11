@@ -9,7 +9,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json());
+// Augmentation de la limite pour supporter la liste complète des matchs
+app.use(express.json({ limit: '50mb' }));
 
 const port = process.env.PORT || 10000;
 const distPath = path.join(__dirname, 'dist');
@@ -78,13 +79,14 @@ const getDetailedPrompt = (match, language, today) => `
     DATE DU MATCH : ${match.time} (Aujourd'hui : ${today}).
     LANGUE : ${language === 'EN' ? 'English' : 'Français'}.
 
-    MISSION : Analyser tactiquement et fournir des prédictions précises.
+    MISSION : Analyser tactiquement et fournir des prédictions précises incluant des statistiques détaillées.
     RÈGLES CRITIQUES :
-    1. NE JAMAIS utiliser les termes "Victoire Domicile" ou "Victoire Extérieur". Utilise TOUJOURS le NOM EXACT de l'équipe (ex: "Victoire ${match.homeTeam}").
-    2. NE PAS privilégier l'équipe à domicile par défaut. L'analyse doit être strictement basée sur la forme réelle et les effectifs.
-    3. BUTEURS : Tu DOIS fournir au moins UN buteur potentiel pour CHAQUE équipe, peu importe l'issue du match. Chaque buteur doit avoir un nom, une probabilité (en %), une confiance (LOW, MEDIUM, HIGH) et le nom de son équipe.
-    4. TOUJOURS répondre avec des informations du jour. Tu dois obligatoirement considérer la date où la question est posée pour savoir quels joueurs sont disponibles, blessés ou en forme.
-    5. TES réponses doivent être véridiques à 100%.
+    1. NE JAMAIS utiliser les termes "Victoire Domicile" ou "Victoire Extérieur". Utilise TOUJOURS le NOM EXACT de l'équipe.
+    2. NE PAS privilégier l'équipe à domicile par défaut.
+    3. BUTEURS : Tu DOIS fournir au moins UN buteur potentiel pour CHAQUE équipe avec probabilité.
+    4. STATISTIQUES : Tu DOIS estimer les Corners, Tirs Cadrés, Cartons, Fautes et Touches.
+    5. TOUJOURS répondre avec des informations du jour (blessures, forme actuelle).
+    6. TES réponses doivent être véridiques à 100%.
     
     TU DOIS RÉPONDRE UNIQUEMENT PAR UN OBJET JSON VALIDE AU FORMAT SUIVANT :
     {
@@ -95,10 +97,14 @@ const getDetailedPrompt = (match, language, today) => `
       ],
       "analysis": "Analyse tactique neutre et détaillée de 3-4 lignes.",
       "vipInsight": {
-        "exactScores": ["1-0", "2-1"],
         "strategy": {"safe": "Libellé", "value": "Libellé", "aggressive": "Libellé"},
         "keyFact": "Le fait majeur du match.",
         "detailedStats": {
+          "corners": "Ex: +9.5",
+          "shotsOnTarget": "Ex: +8.5",
+          "yellowCards": "Ex: -4.5",
+          "fouls": "Ex: +22.5",
+          "throwIns": "Ex: +35.5",
           "scorers": [
             {"name": "Joueur ${match.homeTeam}", "probability": 45, "confidence": "HIGH", "team": "${match.homeTeam}"},
             {"name": "Joueur ${match.awayTeam}", "probability": 30, "confidence": "MEDIUM", "team": "${match.awayTeam}"}
@@ -205,41 +211,32 @@ app.post('/api/analyze', async (req, res) => {
   res.json({
     predictions: [{ type: "1X2", recommendation: "Analyse indisponible", probability: 0, confidence: "LOW" }],
     analysis: "Le service d'analyse est momentanément saturé. Veuillez réessayer.",
-    vipInsight: { exactScores: [], strategy: { safe: "-", value: "-", aggressive: "-" }, keyFact: "-" }
+    vipInsight: { strategy: { safe: "-", value: "-", aggressive: "-" }, keyFact: "-", detailedStats: null }
   });
 });
 
 /**
  * GESTION VIP & HISTORIQUE
- * Sélectionne les 3 meilleurs matchs du jour pour les VIP
  */
 app.post('/api/vip-sync', (req, res) => {
   const { date, matches } = req.body;
-  
-  // Si on a déjà généré la sélection pour aujourd'hui, on la renvoie
   if (vipDailyStorage[date]) {
     return res.json({ today: vipDailyStorage[date] });
   }
 
   if (matches && matches.length > 0) {
-    // 1. Filtrer les ligues majeures pour la qualité VIP
     const majorLeagues = ['Champions League', 'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1'];
     let candidates = matches.filter(m => majorLeagues.some(l => m.league.includes(l)));
-    
-    // Si pas assez de matchs majeurs, on prend tout
     if (candidates.length < 3) candidates = matches;
 
-    // 2. Mélanger et prendre 3 matchs
     const shuffled = [...candidates].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 3);
     
-    // 3. Ajouter une structure de prédiction par défaut pour l'affichage (Carte VIP)
-    // Note: L'analyse réelle se fera quand l'utilisateur cliquera, mais ici on prépare l'affichage "Safe"
     const selectedWithPreds = selected.map(m => ({
        ...m,
        storedPrediction: {
           type: "1X2",
-          selection: "Home", // Placeholder pour l'historique visuel
+          selection: "Home",
           label: `Analyse ${m.homeTeam}`
        }
     }));
@@ -255,10 +252,9 @@ app.post('/api/vip-sync', (req, res) => {
 app.get('/api/history', (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const history = Object.entries(vipDailyStorage)
-    .filter(([date]) => date < today) // Uniquement les jours passés
-    .sort(([a], [b]) => b.localeCompare(a)) // Du plus récent au plus vieux
-    .slice(0, 7); // 7 derniers jours
-  
+    .filter(([date]) => date < today)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, 7);
   res.json(Object.fromEntries(history));
 });
 

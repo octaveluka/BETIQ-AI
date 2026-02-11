@@ -9,7 +9,6 @@ export enum BetType {
   W1X2 = '1X2',
   OVER_UNDER = 'O/U 2.5',
   BTTS = 'BTTS',
-  EXACT_SCORE = 'SCORE EXACT',
   PLAYER_PROPS = 'BUTEUR',
   CORNERS = 'CORNERS',
   CARDS = 'CARTONS'
@@ -40,16 +39,13 @@ export interface Prediction {
 export interface DetailedStats {
   corners: string;
   yellowCards: string;
-  offsides: string;
   fouls: string;
-  shots: string;
   shotsOnTarget: string;
-  throwIns?: string;
+  throwIns: string;
   scorers: { name: string; probability: number; confidence: Confidence; team: string }[];
 }
 
 export interface VipInsight {
-  exactScores: string[];
   strategy: {
     safe: string;
     value: string;
