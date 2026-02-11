@@ -36,29 +36,27 @@ export async function fetchMatchesByDate(date: string): Promise<ApiMatch[]> {
     if (!response.ok) return [];
 
     const data = await response.json();
-    if (data.error || !Array.isArray(data)) return [];
+    if (data.error || !Array.isArray(data)) {
+      console.warn("Football API Error or Empty:", data);
+      return [];
+    }
     
-    const Keywords = [
-      'Champions League', 'Europa League', 'Conference League', 'Libertadores', 
-      'CAF Champions', 'CONCACAF', 'FIFA Club World Cup', 'Premier League',
-      'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Brasileirão', 'Liga MX',
-      'Major League Soccer', 'MLS', 'Primeira Liga', 'Eredivisie', 'World Cup', 'Euro',
-      'Copa América', 'CAN', 'Cup of Nations', 'Asian Cup', 'Gold Cup', 
-      'Nations League', 'Copa del Rey', 'Coupe du Roi', 'King\'s Cup', 'African Nations'
+    // Priority Leagues for Sorting
+    const priorityLeagues = [
+      'Champions League', 'Premier League', 'La Liga', 'Serie A', 
+      'Bundesliga', 'Ligue 1', 'Europa League', 'Conference League',
+      'World Cup', 'Euro', 'Copa América', 'Brasileirão', 'Eredivisie',
+      'Primeira Liga', 'MLS', 'Saudi Pro League'
     ];
 
-    const africanKeywords = ['Africa', 'CAN', 'CAF', 'Afrique', 'Nations Cup'];
+    // Sort: Priority Leagues first, then by time
+    return data.sort((a, b) => {
+      const aIsPriority = priorityLeagues.some(l => a.league_name.includes(l));
+      const bIsPriority = priorityLeagues.some(l => b.league_name.includes(l));
 
-    return data.filter(m => {
-      const name = m.league_name.toLowerCase();
-      const country = m.country_name.toLowerCase();
-      
-      const isRequested = Keywords.some(key => name.includes(key.toLowerCase()));
-      const isAfrican = africanKeywords.some(key => name.includes(key.toLowerCase()) || country.includes(key.toLowerCase()));
-      const isMajorCountry = ['England', 'Spain', 'Italy', 'Germany', 'France', 'Brazil', 'Mexico', 'USA', 'Portugal', 'Netherlands', 'Spain'].includes(m.country_name);
-      
-      // Force include CAN (League ID 28 usually) or any league with African keywords
-      return isRequested || isAfrican || isMajorCountry || m.league_id === '28';
+      if (aIsPriority && !bIsPriority) return -1;
+      if (!aIsPriority && bIsPriority) return 1;
+      return a.match_time.localeCompare(b.match_time);
     });
 
   } catch (error) {
