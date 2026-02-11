@@ -1,15 +1,15 @@
 
 import { auth } from './services/firebase';
 import React, { useState, useEffect, useMemo } from 'react';
-import { HashRouter, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { 
   Crown, Lock, LayoutGrid, ChevronLeft, 
   Loader2, BrainCircuit, Star,
   LogOut, ShieldCheck, Languages, ChevronRight,
-  Menu, History, Calendar, RefreshCw, Zap, Search, Filter, Trophy
+  Menu, History, Calendar, RefreshCw, Zap, Search, Filter, Trophy,
+  Flag, Target, RectangleVertical, Hand, MoveHorizontal, OctagonAlert
 } from 'lucide-react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
-import type { User as FirebaseUser } from "firebase/auth";
+import * as FirebaseAuth from "firebase/auth";
 
 import { FootballMatch, Confidence, Language } from './types';
 import { MatchCard } from './components/MatchCard';
@@ -17,6 +17,10 @@ import { VipSafeCard } from './components/VipSafeCard';
 import { ConfidenceIndicator } from './components/ConfidenceIndicator';
 import { generatePredictionsAndAnalysis, AnalysisResult } from './services/geminiService';
 import { fetchMatchesByDate } from './services/footballApiService';
+
+// Destructure from namespace imports to avoid "no exported member" errors
+const { HashRouter, Routes, Route, Link, useLocation, useNavigate, Navigate } = ReactRouterDOM as any;
+const { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } = FirebaseAuth as any;
 
 const ADMIN_CODE = "20202020";
 const PAYMENT_LINK = "https://bsbxsvng.mychariow.shop/prd_g3zdgh/checkout";
@@ -102,15 +106,21 @@ const SidebarItem = ({ icon, title, onClick }: any) => (
   </button>
 );
 
+// Utilitaire pour obtenir la date locale au format YYYY-MM-DD
+const getLocalISODate = () => {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+};
+
 const App: React.FC = () => {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [isVip, setIsVip] = useState(false);
   const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('lang') as Language) || 'FR');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [matches, setMatches] = useState<FootballMatch[]>([]);
   const [dailyVip, setDailyVip] = useState<FootballMatch[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalISODate());
   const location = useLocation();
   const t = DICTIONARY[language];
 
@@ -118,6 +128,7 @@ const App: React.FC = () => {
     setLoading(true);
     const dateToUse = dateOverride || selectedDate;
     const data = await fetchMatchesByDate(dateToUse);
+    
     const mapped = data.map(m => ({
         id: m.match_id, league: m.league_name, homeTeam: m.match_hometeam_name, awayTeam: m.match_awayteam_name,
         homeLogo: m.team_home_badge, awayLogo: m.team_away_badge, time: m.match_time, status: m.match_status,
@@ -126,18 +137,21 @@ const App: React.FC = () => {
     }));
     setMatches(mapped);
     
-    // Sync VIP only if viewing today's matches
-    const today = new Date().toISOString().split('T')[0];
-    if (dateToUse === today) {
+    // Sync VIP pour toute date affichée s'il y a des matchs
+    if (mapped.length > 0) {
         try {
           const res = await fetch('/api/vip-sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ date: today, matches: mapped })
+            body: JSON.stringify({ date: dateToUse, matches: mapped })
           });
-          const json = await res.json();
-          setDailyVip(json.today || []);
-        } catch (e) { console.error("VIP Sync failed"); }
+          if (res.ok) {
+            const json = await res.json();
+            setDailyVip(json.today || []);
+          } else {
+             setDailyVip([]);
+          }
+        } catch (e) { console.error("VIP Sync failed", e); setDailyVip([]); }
     } else {
         setDailyVip([]); 
     }
@@ -146,7 +160,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
+    const unsub = onAuthStateChanged(auth, (u: any) => {
       setUser(u);
       if (u) setIsVip(localStorage.getItem(`btq_vip_status_${u.email}`) === 'true');
     });
@@ -202,13 +216,9 @@ const NavLink = ({ to, icon, label, active }: any) => (
   </Link>
 );
 
-/**
- * Filter Bar Component
- */
 const FilterBar = ({ date, setDate, selectedLeague, setSelectedLeague, leagues, t }: any) => {
   return (
     <div className="flex flex-col gap-4 mb-6">
-      {/* Date Picker Row */}
       <div className="flex items-center gap-2 bg-white/5 px-4 py-3 rounded-2xl border border-white/5 w-fit">
         <Calendar size={16} className="text-orange-500"/>
         <input 
@@ -218,8 +228,6 @@ const FilterBar = ({ date, setDate, selectedLeague, setSelectedLeague, leagues, 
           className="bg-transparent text-white text-xs font-black uppercase outline-none" 
         />
       </div>
-
-      {/* League Scroller */}
       <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
         <button 
           onClick={() => setSelectedLeague('ALL')}
@@ -249,52 +257,21 @@ const FilterBar = ({ date, setDate, selectedLeague, setSelectedLeague, leagues, 
   );
 };
 
-/**
- * Unified Dashboard: Handles both Free and VIP logic with visual distinctions.
- */
 const UnifiedDashboard: React.FC<any> = ({ lang, matches, dailyVip, loading, isVip, date, setDate }) => {
   const t = DICTIONARY[lang as Language];
   const navigate = useNavigate();
   const [selectedLeague, setSelectedLeague] = useState('ALL');
-
-  // Extract unique leagues for filter
   const leagues = useMemo(() => Array.from(new Set(matches.map((m: any) => m.league))), [matches]);
-
-  // Filter matches
   const filteredMatches = matches.filter((m: any) => selectedLeague === 'ALL' || m.league === selectedLeague);
-
-  // Free user logic: specific "Free Coupons"
   const freeCoupons = !isVip ? filteredMatches.slice(0, 2) : [];
   const restOfMatches = !isVip ? filteredMatches.slice(2) : filteredMatches;
 
   return (
     <div className="pb-32 px-5 max-w-2xl mx-auto pt-6">
        {!isVip && <Banner lang={lang} isVip={isVip} />}
+       <FilterBar date={date} setDate={setDate} selectedLeague={selectedLeague} setSelectedLeague={setSelectedLeague} leagues={leagues} t={t} />
 
-       <FilterBar 
-         date={date} 
-         setDate={setDate} 
-         selectedLeague={selectedLeague} 
-         setSelectedLeague={setSelectedLeague} 
-         leagues={leagues} 
-         t={t} 
-       />
-
-       {/* SECTION 1: FREE COUPONS (Only for Standard) */}
-       {!isVip && freeCoupons.length > 0 && (
-         <section className="mb-8">
-           <h2 className="text-[11px] font-black text-slate-400 uppercase mb-4 tracking-widest flex items-center gap-2 border-b border-white/5 pb-2">
-             <Zap size={14} className="text-blue-400" /> {t.freeCoupons}
-           </h2>
-           <div className="space-y-4">
-             {loading ? <Loader2 className="animate-spin text-orange-500 mx-auto"/> : freeCoupons.map((m: any) => (
-               <MatchCard key={m.id} match={m} isVipUser={true} forceLock={false} lang={lang} onClick={() => navigate(`/match/${m.id}`, { state: { match: m } })} />
-             ))}
-           </div>
-         </section>
-       )}
-
-       {/* SECTION 2: VIP SELECTION (Displayed for everyone, Locked for Standard) */}
+       {/* SÉLECTION VIP DU JOUR (PLACÉE AVANT LES COUPONS GRATUITS) */}
        {dailyVip.length > 0 && (
          <section className="mb-8">
            <h2 className="text-[11px] font-black text-orange-500 uppercase mb-4 tracking-widest flex items-center gap-2 border-b border-white/5 pb-2">
@@ -308,7 +285,19 @@ const UnifiedDashboard: React.FC<any> = ({ lang, matches, dailyVip, loading, isV
          </section>
        )}
 
-       {/* SECTION 3: ALL MATCHES (Displayed for everyone, Locked for Standard) */}
+       {!isVip && freeCoupons.length > 0 && (
+         <section className="mb-8">
+           <h2 className="text-[11px] font-black text-slate-400 uppercase mb-4 tracking-widest flex items-center gap-2 border-b border-white/5 pb-2">
+             <Zap size={14} className="text-blue-400" /> {t.freeCoupons}
+           </h2>
+           <div className="space-y-4">
+             {loading ? <Loader2 className="animate-spin text-orange-500 mx-auto"/> : freeCoupons.map((m: any) => (
+               <MatchCard key={m.id} match={m} isVipUser={true} forceLock={false} lang={lang} onClick={() => navigate(`/match/${m.id}`, { state: { match: m } })} />
+             ))}
+           </div>
+         </section>
+       )}
+
        <section>
           <h2 className="text-[11px] font-black text-slate-500 uppercase mb-4 tracking-widest flex items-center gap-2">
             <LayoutGrid size={14} /> {t.allMatches}
@@ -316,14 +305,7 @@ const UnifiedDashboard: React.FC<any> = ({ lang, matches, dailyVip, loading, isV
           {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-orange-500"/></div> : (
              <div className="space-y-4">
                {restOfMatches.length > 0 ? restOfMatches.map((m: any) => (
-                 <MatchCard 
-                    key={m.id} 
-                    match={m} 
-                    isVipUser={isVip} 
-                    forceLock={!isVip} 
-                    lang={lang} 
-                    onClick={() => isVip ? navigate(`/match/${m.id}`, { state: { match: m } }) : navigate('/premium')} 
-                 />
+                 <MatchCard key={m.id} match={m} isVipUser={isVip} forceLock={!isVip} lang={lang} onClick={() => isVip ? navigate(`/match/${m.id}`, { state: { match: m } }) : navigate('/premium')} />
                )) : <p className="text-center text-slate-500 text-xs py-10 font-bold uppercase tracking-widest">No matches found for this filter.</p>}
              </div>
           )}
@@ -343,7 +325,6 @@ const Banner = ({ lang, isVip }: any) => (
   </div>
 );
 
-// --- HISTORY VIEW (Logic for Success/Fail) ---
 const HistoryView: React.FC<any> = ({ lang }) => {
   const [history, setHistory] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -356,11 +337,8 @@ const HistoryView: React.FC<any> = ({ lang }) => {
 
   const getStatus = (m: any) => {
     if (m.match_status !== 'Finished') return { label: t.pending, color: 'text-slate-500 bg-slate-500/10' };
-    
-    // Simplified status logic for demo
     const h = parseInt(m.homeScore);
     const a = parseInt(m.awayScore);
-    
     if (h > a) return { label: t.win, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' };
     if (h < a) return { label: t.loss, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20' };
     return { label: "DRAW", color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' };
@@ -389,7 +367,6 @@ const HistoryView: React.FC<any> = ({ lang }) => {
                           <span className={`px-3 py-1 rounded-lg text-[9px] font-black border ${status.color} uppercase tracking-widest mb-1`}>{status.label}</span>
                           <span className="text-lg font-black text-white tracking-widest">{m.homeScore} - {m.awayScore}</span>
                        </div>
-                       
                        <div className="flex items-center gap-4 mb-2">
                           <img src={m.homeLogo} className="w-8 h-8 object-contain" />
                           <span className="text-[10px] font-bold text-white uppercase">{m.homeTeam}</span>
@@ -436,6 +413,14 @@ const SettingsView: React.FC<any> = ({ isVip, setIsVip, userEmail, language }) =
   );
 };
 
+const StatBox = ({ label, value, icon }: any) => (
+    <div className="bg-white/5 p-4 rounded-2xl border border-white/5 flex flex-col items-center gap-2">
+        <div className="text-orange-500 opacity-80">{icon}</div>
+        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+        <span className="text-lg font-black text-white tracking-tight">{value}</span>
+    </div>
+);
+
 const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
   const { state } = useLocation();
   const navigate = useNavigate();
@@ -469,7 +454,7 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
         {loading ? <div className="flex flex-col items-center justify-center py-20 gap-4"><Loader2 className="animate-spin text-orange-500" size={48}/><p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Consulting Neural Models...</p></div> : analysis && (
           <div className="space-y-8">
             <div className="grid gap-5">
-              {analysis.predictions.map((p, i) => (
+              {(analysis.predictions || []).map((p, i) => (
                 <div key={i} className="bg-white/5 p-7 rounded-[2.5rem] border border-white/5 flex justify-between items-center shadow-lg group hover:bg-white/10 transition-colors">
                   <div>
                     <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">{p.type}</p>
@@ -490,19 +475,44 @@ const MatchDetailView: React.FC<any> = ({ language, isVip }) => {
               
               {isVip && analysis.vipInsight && (
                 <div className="mt-8 pt-8 border-t border-orange-500/10 space-y-6 animate-fade-in">
-                   <div>
-                     <p className="text-[9px] font-black text-orange-500/50 uppercase mb-2 tracking-widest">EXACT SCORES</p>
-                     <div className="flex gap-3">
-                       {analysis.vipInsight.exactScores.map((s, idx) => (
-                         <span key={idx} className="bg-orange-500 text-white font-black px-5 py-2 rounded-xl text-xs shadow-lg shadow-orange-500/20">{s}</span>
-                       ))}
-                     </div>
-                   </div>
-                   <div className="bg-black/40 p-5 rounded-2xl border border-white/5">
-                      <p className="text-[9px] font-black text-emerald-500 uppercase mb-2 tracking-widest">ELITE STRATEGY</p>
-                      <p className="text-[11px] text-slate-400"><strong className="text-white">VALUE:</strong> {analysis.vipInsight.strategy.value}</p>
-                      <p className="text-[11px] text-slate-400 mt-1"><strong className="text-white">FACT:</strong> {analysis.vipInsight.keyFact}</p>
-                   </div>
+                   {/* STATS GRID */}
+                   {analysis.vipInsight?.detailedStats && (
+                       <div className="grid grid-cols-2 gap-3 mb-6">
+                           <StatBox label="CORNERS" value={analysis.vipInsight.detailedStats.corners || "N/A"} icon={<Flag size={18}/>} />
+                           <StatBox label="TIRS CADRÉS" value={analysis.vipInsight.detailedStats.shotsOnTarget || "N/A"} icon={<Target size={18}/>} />
+                           <StatBox label="CARTONS" value={analysis.vipInsight.detailedStats.yellowCards || "N/A"} icon={<RectangleVertical size={18}/>} />
+                           <StatBox label="FAUTES" value={analysis.vipInsight.detailedStats.fouls || "N/A"} icon={<OctagonAlert size={18}/>} />
+                           <StatBox label="TOUCHES" value={analysis.vipInsight.detailedStats.throwIns || "N/A"} icon={<MoveHorizontal size={18}/>} />
+                       </div>
+                   )}
+                   
+                   {/* SCORERS */}
+                   {analysis.vipInsight?.detailedStats?.scorers && Array.isArray(analysis.vipInsight.detailedStats.scorers) && analysis.vipInsight.detailedStats.scorers.length > 0 && (
+                       <div className="bg-black/40 p-5 rounded-2xl border border-white/5">
+                           <p className="text-[9px] font-black text-orange-500 uppercase mb-4 tracking-widest">BUTEURS POTENTIELS</p>
+                           <div className="space-y-3">
+                               {analysis.vipInsight.detailedStats.scorers.map((scorer, idx) => (
+                                   <div key={idx} className="flex justify-between items-center bg-white/5 p-3 rounded-xl">
+                                       <div>
+                                           <span className="text-[11px] font-black text-white block">{scorer.name}</span>
+                                           <span className="text-[9px] text-slate-500 uppercase">{scorer.team}</span>
+                                       </div>
+                                       <div className="text-right">
+                                           <span className="text-orange-500 font-bold text-xs">{scorer.probability}%</span>
+                                       </div>
+                                   </div>
+                               ))}
+                           </div>
+                       </div>
+                   )}
+
+                   {analysis.vipInsight?.strategy && (
+                       <div className="bg-black/40 p-5 rounded-2xl border border-white/5">
+                          <p className="text-[9px] font-black text-emerald-500 uppercase mb-2 tracking-widest">ELITE STRATEGY</p>
+                          <p className="text-[11px] text-slate-400"><strong className="text-white">VALUE:</strong> {analysis.vipInsight.strategy.value}</p>
+                          <p className="text-[11px] text-slate-400 mt-1"><strong className="text-white">FACT:</strong> {analysis.vipInsight.keyFact}</p>
+                       </div>
+                   )}
                 </div>
               )}
             </div>
