@@ -1,7 +1,6 @@
 
-// Fix: Consolidate modular Firebase imports to resolve "no exported member" errors
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import * as firebaseApp from "firebase/app";
+import * as firebaseAuth from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBFQctGewLcFaSHPWs_YpuxomuHXFEK-TQ",
@@ -13,12 +12,16 @@ const firebaseConfig = {
   measurementId: "G-K22TJ6FT6T"
 };
 
-// Fix: Ensure single initialization using standard modular API
-// Initialisation unique de l'application
+// Initialize Firebase App instance
+// Handle edge cases where imports might be different in specific environments
+const initializeApp = firebaseApp.initializeApp || (firebaseApp as any).default?.initializeApp;
+const getApps = firebaseApp.getApps || (firebaseApp as any).default?.getApps;
+const getApp = firebaseApp.getApp || (firebaseApp as any).default?.getApp;
+const getAuth = firebaseAuth.getAuth || (firebaseAuth as any).default?.getAuth;
+
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialisation de l'authentification liée à l'instance 'app' confirmée
-// Cela résout l'erreur "Component auth has not been registered yet"
+// Initialize and export Auth tied to the app instance
 export const auth = getAuth(app);
 
 export { app };
