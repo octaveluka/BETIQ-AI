@@ -1,4 +1,3 @@
-
 import { FootballMatch, Confidence, Prediction, VipInsight } from "../types";
 
 export interface AnalysisResult {
@@ -42,7 +41,6 @@ export async function generatePredictionsAndAnalysis(match: FootballMatch, langu
       ],
       analysis: "Désolé, nous ne parvenons pas à contacter nos services d'analyse. Vérifiez votre connexion.",
       vipInsight: { 
-        exactScores: [], 
         keyFact: "Erreur de communication serveur.", 
         strategy: { safe: "N/A", value: "N/A", aggressive: "N/A" } 
       },
